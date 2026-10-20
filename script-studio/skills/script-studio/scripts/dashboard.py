@@ -383,14 +383,84 @@ def bullets(lines):
     return out
 
 
-def split_title(s):
-    s = re.sub(r'\s*\[(inferred|confirmed|likely)[^\]]*\]\s*$', '', s)
-    for sep in (' | ', ': '):
-        if sep in s:
-            a, b = s.split(sep, 1)
-            if len(a) <= 90:
-                return a.strip().strip('*'), b.strip()
-    return s.strip('*'), ''
+TAGS = re.compile(r'\s*\[(inferred|confirmed|likely)[^\]]*\]', re.I)
+FILE_REFS = re.compile(r'[,;]?\s*(\(\s*)?\b((from|see|in|per|via)\s+)?(ST/)?(about|voice|taste|hook-bank)\.md\b(\s*\))?', re.I)
+
+
+def clean_note(s):
+    """A voice.md line without its [inferred]/[confirmed] tags or mentions of the buyer's files."""
+    s = FILE_REFS.sub('', TAGS.sub('', s or ''))
+    return re.sub(r'\s{2,}', ' ', s).strip().strip(',;').strip()
+
+
+def parse_pillar(s):
+    """[title, body, proof url, proof label] from '<pillar>: <line> | proof: <URL>, <x>x [tag]'."""
+    parts = [p.strip() for p in TAGS.sub('', s).split(' | ')]
+    main, url, label = parts[0], '', ''
+    for p in parts[1:]:
+        if p.lower().startswith('proof'):
+            m = re.search(r'https?://[^\s,]+', p)
+            url = m.group(0) if m else ''
+            mx = re.search(r'(\d+(?:\.\d+)?)\s*x\b', p[m.end():] if m else p)
+            if mx:
+                label = 'Proof: %sx' % ('%d' % round(float(mx.group(1))) if float(mx.group(1)) >= 10 else
+                                        ('%.1f' % float(mx.group(1))).rstrip('0').rstrip('.'))
+            elif url:
+                label = 'Proof'
+        else:
+            main += ' ' + p
+    main = clean_note(main)
+    title, body = main.strip('*'), ''
+    if ': ' in main:
+        a, b = main.split(': ', 1)
+        if len(a) <= 90:
+            title, body = a.strip().strip('*'), b.strip()
+    return [title, body, url, label]
+
+
+def norm_q(s):
+    return (s or '').replace('’', "'").replace('‘', "'").replace('“', '"').replace('”', '"').lower()
+
+
+ALWAYS_BANNED = ('selling a course', 'selling of course')
+
+
+def banned_phrases(about, voice):
+    """Phrases the buyer never says: quoted ones in their rules, plus the short rule text itself."""
+    lines = bullets(md_sections(about).get('never do or say', []))
+    for k, v in md_sections(voice).items():
+        if k.startswith('hard rules'):
+            lines += bullets(v)
+    out = set(ALWAYS_BANNED)
+    for ln in lines:
+        ln = norm_q(TAGS.sub('', ln))
+        quoted = re.findall(r'"([^"]{3,})"', ln)
+        out.update(q.strip(' .,!?') for q in quoted if len(q.strip(' .,!?')) >= 4)
+        neg = re.match(r'^(no|never|don\'t|do not|avoid|banned:?)\s+((say|use|do|trash)\s+)?', ln.strip())
+        if not quoted and neg:
+            rest = re.split(r'[,.;:(]', ln.strip()[neg.end():])[0].strip()
+            if len(rest.split()) >= 2:
+                out.add(rest)
+    return sorted(p for p in out if p)
+
+
+def is_banned(line, banned):
+    t = norm_q(line)
+    return any(p in t for p in banned)
+
+
+def voice_openers(voice):
+    """(quote, x) for each line of voice.md's Openers section."""
+    out = []
+    for b in bullets(md_sections(voice).get('openers', [])):
+        b = b.replace('“', '"').replace('”', '"')
+        head = b.split(' | ')[0].strip()
+        m = re.match(r'^"(.+?)"', head)
+        quote = m.group(1).strip() if m else clean_note(head).strip('"')
+        mx = re.search(r'(\d+(?:\.\d+)?)\s*x\b', b.split(' | ')[-1]) if ' | ' in b else None
+        if quote:
+            out.append((quote, float(mx.group(1)) if mx else None))
+    return out
 
 
 def latest_radar(kind):
@@ -576,7 +646,8 @@ def reel_view(h, r, img, whose):
     code = r.get('code') or ''
     segs = segments(h, code)
     has_tr = r.get('transcribed') or os.path.isfile(os.path.join(reel_dir(h, code), 'transcript.json'))
-    hook = hook_line(h, code) if has_tr else ''
+    # trend audio: the transcript is song lyrics, never a spoken hook
+    hook = hook_line(h, code) if has_tr and r.get('original_audio') is not False else ''
     x = r.get('x') or 0
     v = {
         'h': h, 'url': r.get('url', '#'), 'img': img or '', 'whose': whose,
@@ -667,13 +738,40 @@ def data_my(own, od, rv):
     }
 
 
-def data_hooks(own, od, rv, bank, voice):
-    wins = []
-    if od:
-        for r in sorted([r for r in od['reels'] if counts(r) and not r.get('suspect') and r['x'] >= 1.2], key=lambda r: r['x'], reverse=True):
-            hk = hook_line(own, r['code'])
-            if hk:
-                wins.append({'k': rv.key(own, r, 'your'), 'hook': first_line(hk, 200)})
+def opener_reel(r):
+    """A reel whose opening line is really the buyer's: their own voice, settled and counted."""
+    return (counts(r) and not r.get('suspect') and r.get('original_audio') is not False
+            and (r.get('x') or 0) >= 1.2 and bool(r.get('code')))
+
+
+def winning_openers(own, od, rv, voice, banned):
+    """The buyer's winning first lines: voice.md's Openers first (matched to their reel), then transcripts."""
+    if not od:
+        return []
+    reels = sorted([r for r in od['reels'] if opener_reel(r)], key=lambda r: r['x'], reverse=True)
+    wins, used = [], set()
+    for quote, x in voice_openers(voice):
+        if x is None or is_banned(quote, banned):
+            continue
+        cands = [r for r in reels if r['code'] not in used and abs(r['x'] - x) < 0.006]
+        if not cands:
+            continue
+        q = set(norm_q(quote).split())
+        r = max(cands, key=lambda r: len(q & set(norm_q(hook_line(own, r['code'])).split())))
+        used.add(r['code'])
+        wins.append((r['x'], {'k': rv.key(own, r, 'your'), 'hook': first_line(quote, 200)}))
+    for r in reels:
+        if r['code'] in used:
+            continue
+        hk = hook_line(own, r['code'])
+        if hk and not is_banned(hk, banned):
+            wins.append((r['x'], {'k': rv.key(own, r, 'your'), 'hook': first_line(hk, 200)}))
+    wins.sort(key=lambda w: w[0], reverse=True)
+    return [w for _, w in wins]
+
+
+def data_hooks(own, od, rv, bank, voice, banned=()):
+    wins = winning_openers(own, od, rv, voice, banned)
     lean = []
     for b in bullets(md_sections(voice).get('hook types they lean on', [])):
         b = re.sub(r'\bfor (him|her|them)\b', 'for you', re.sub(r'\s*\[(inferred|confirmed|likely)[^\]]*\]\s*$', '', b))
@@ -723,7 +821,8 @@ def data_comps(comps, libs, rv):
 
 
 def data_topics(voice, reddit, rdate, xs, xdate):
-    out = {'pillars': [list(split_title(b)) for b in bullets(md_sections(voice).get('pillars', []))], 'reddit': None, 'x': None}
+    pillars = [p for p in (parse_pillar(b) for b in bullets(md_sections(voice).get('pillars', []))) if p[0]]
+    out = {'pillars': pillars, 'reddit': None, 'x': None}
     if reddit:
         by = {}
         for it in sorted(reddit, key=lambda x: x.get('rank') or 99):
@@ -909,10 +1008,12 @@ main{padding-bottom:80px}
 .ghost-btn{padding:9px 16px;border-radius:999px;border:1px solid var(--line2);font-size:13.5px;font-weight:500;white-space:nowrap}
 .ghost-btn:hover{border-color:var(--text)}
 .pillars{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
-.pillar{padding:20px;border-radius:18px;background:var(--surface);border:1px solid var(--line)}
+.pillar{padding:20px;border-radius:18px;background:var(--surface);border:1px solid var(--line);min-width:0;overflow-wrap:anywhere}
 .pn{font:var(--hw) 28px/1 var(--hfont);color:var(--accent2)}
 .pt{font-weight:600;margin-top:10px}
 .pd{color:var(--muted);font-size:14px;margin-top:4px}
+.pproof{display:inline-block;margin-top:10px;font-size:12.5px;font-weight:600;color:var(--accent2)}
+.pproof:hover{text-decoration:underline}
 .tcols{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:8px 36px}
 .rgroup{margin-bottom:22px}
 .rgroup h4{font-family:var(--bfont);font-weight:600;font-size:15px;display:flex;align-items:baseline;gap:10px;padding-bottom:10px;border-bottom:1px solid var(--line)}
@@ -1149,7 +1250,8 @@ JS = r"""
     var out='<div class="sec-head"><div><h2>Topics</h2><p>What your audience is talking about right now, and the pillars your content stands on.</p></div></div>'+
       '<div class="sub-head"><h3>Your pillars</h3><p>The few big themes every reel should fit under.</p></div>';
     out+=d.pillars.length?'<div class="pillars">'+each(d.pillars,function(p,i){
-      return '<div class="pillar"><span class="pn">'+(i<9?'0':'')+(i+1)+'</span><p class="pt">'+md(p[0])+'</p>'+(p[1]?'<p class="pd">'+md(p[1])+'</p>':'')+'</div>'})+'</div>'
+      return '<div class="pillar"><span class="pn">'+(i<9?'0':'')+(i+1)+'</span><p class="pt">'+md(p[0])+'</p>'+(p[1]?'<p class="pd">'+md(p[1])+'</p>':'')+
+        (p[2]?'<a class="pproof" href="'+esc(p[2])+'" target="_blank" rel="noopener">'+esc(p[3]||'Proof')+' <span aria-hidden="true">↗</span></a>':'')+'</div>'})+'</div>'
       :empty('No pillars saved yet','Claude names your pillars from your best reels during a refresh.','refresh my research');
     var cols='';
     if(d.reddit){
@@ -1287,7 +1389,17 @@ JS = r"""
     document.head.appendChild(s);
   }
   if(window.SS_DATA){cur=window.SS_DATA.generated; render(false)}
-  show((location.hash||'').slice(1),false);
+  function fromHash(){show(decodeURIComponent((location.hash||'').slice(1)),false)}
+  window.addEventListener('hashchange',fromHash);
+  window.addEventListener('popstate',fromHash);
+  document.addEventListener('click',function(e){
+    var a=e.target.closest&&e.target.closest('a[href^="#"]'); if(!a) return;
+    var id=decodeURIComponent(a.getAttribute('href').slice(1));
+    if(!panels.some(function(p){return p.dataset.panel===id})) return;
+    e.preventDefault(); show(id,true);
+    var m=document.querySelector('main'); if(m) window.scrollTo({top:Math.max(0,m.offsetTop-80)});
+  });
+  fromHash();
   setInterval(poll,20000);
 })();
 """
@@ -1414,7 +1526,7 @@ def build_data(br):
 
     rv = Reels(imgs)
     my = data_my(own, od, rv)
-    hooks = data_hooks(own, od, rv, bank, voice)
+    hooks = data_hooks(own, od, rv, bank, voice, banned_phrases(read_text(os.path.join(ST, 'about.md')), voice))
     cps = data_comps(comps, libs, rv)
     topics = data_topics(voice, reddit, rdate, xs, xdate)
 

@@ -25,10 +25,10 @@ Never paste the file path unless they ask where it lives.
 
 ## Filling ST/brand.json (once, at setup)
 ```json
-{"name": "Jane Doe", "colors": {"bg": "#1b2d28", "surface": "#223530", "text": "#f1eee4", "muted": "#b3ac98",
- "accent": "#328559", "accent2": "#67c191"}, "fonts": {"heading": "Bebas Neue", "body": "Inter"},
- "google_fonts_url": "https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&display=swap",
- "logo": "brand/logo.png", "mode": "dark", "source": "https://janedoe.com"}
+{"name": "Sam Rivera", "colors": {"bg": "#16181f", "surface": "#1e212b", "text": "#f2f0eb", "muted": "#aeadb8",
+ "accent": "#d9603b", "accent2": "#f0a37f"}, "fonts": {"heading": "Oswald", "body": "Inter"},
+ "google_fonts_url": "https://fonts.googleapis.com/css2?family=Oswald:wght@500;600&family=Inter:wght@400;500;600;700&display=swap",
+ "logo": "brand/logo.png", "mode": "dark", "source": "https://samrivera.example"}
 ```
 1. Find their site: the website they gave you, else the link in their Instagram bio (a link-in-bio page counts),
    else their Instagram profile itself. Ask once only if none of those exist.
