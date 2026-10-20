@@ -2,7 +2,9 @@
 
 For Instagram Reels, TikTok, and YouTube Shorts, 20 to 60 seconds. One core idea per script. If the idea has two, script the stronger one and offer the other as its own idea.
 
-Before writing, read: the idea card, `<state>/voice.md` (house structure, words per second, CTA style, proof bank), `<state>/taste.md`, and `hooks.md`. Every script runs the VOICE GATE in `voice.md` before it is shown.
+Before writing, read: the idea card, `<state>/voice.md` (house structure, pace per format, CTA style, proof bank), `<state>/about.md` (CTA and keyword, proof bank), `<state>/taste.md`, and `hooks.md`. Every script runs the VOICE GATE in `voice.md` before it is shown.
+
+Everything below is a default. The buyer's House structure in `voice.md` and any `[confirmed]` line beat it.
 
 ---
 
@@ -18,7 +20,9 @@ Answer these in a line each. If you can't, the script isn't ready.
 
 ---
 
-## The structure, beat by beat
+## The structure, beat by beat (default)
+
+This timing is the DEFAULT. If the House structure in `voice.md` says otherwise (for example, the list IS the hook and runs 30% of the reel), follow the house structure.
 
 | Beat | Job | Share of runtime |
 |---|---|---|
@@ -78,7 +82,7 @@ Use copywriting frameworks (problem, agitate, solve and the rest) only as invisi
 
 ## Pacing in words per second
 
-Spoken pace is about 2.5 to 3 words per second. If `voice.md` has the buyer's measured words per second, use theirs: target words = seconds x their rate x 0.9. Write to the low end. Real delivery adds pauses, emphasis, and reactions.
+Spoken pace is about 2.5 to 3 words per second. If `voice.md` has the buyer's measured pace for this script's format (talking, or list or demo), use it: target words = seconds x that rate x 0.9. Write to the low end. Real delivery adds pauses, emphasis, and reactions.
 
 | Length | Target words (2.5 to 3 w/s) | Hook (first sentence) |
 |---|---|---|
@@ -96,7 +100,7 @@ Count the spoken words before showing the script. Report the count next to the l
 The buyer's own top reels (by multiplier) show the shape their audience already rewards.
 
 1. Take the `House structure` section in `voice.md`. If it's missing, map their top 3 reels now: hook mechanism, seconds to first payoff, number of stages, story or list, where the CTA sits, total length and word count.
-2. If 2 of the 3 share a shape, that is the default template. Pour the new idea into it.
+2. If 2 of the 3 share a shape, that is the template, and it beats the default beat table above. Pour the new idea into it.
 3. Break from it only when the idea needs a different shape (a two-path story doesn't fit a list template). Say so in one line above the script.
 4. If the source outlier had a strong shape of its own, blend 70/30: the source's shape, the buyer's rhythm, length, and CTA habit.
 
@@ -104,7 +108,7 @@ The buyer's own top reels (by multiplier) show the shape their audience already 
 
 ## CTA types
 
-One CTA per reel. Use the buyer's CTA wording from `voice.md`. Not every reel needs a hard ask.
+One CTA per reel is the default. The ask and keyword come from `about.md`, said in the wording from CTA style in `voice.md`. If their winners use a signature double close (the CTA plus a follow line), keep it. Not every reel needs a hard ask.
 
 | CTA | Use when | Example |
 |---|---|---|
@@ -123,7 +127,7 @@ When the reel's main goal is conversion, the CTA can also go in the caption's fi
 
 ## Output format for every script
 
-Show exactly this, no em dashes anywhere:
+Save exactly this as the script file, no em dashes anywhere. In chat show everything except the Hook options section; from it show the top 3 only, one line each, and say the other 7 are in the file.
 
 ```
 # <Title, internal, an open loop>
@@ -162,10 +166,8 @@ Shape: <story shape or house structure> | Payoff lands at: ~<N>% | Source: <@cre
 <CTA line>
 <3 to 5 relevant hashtags>
 
-## Alternate hooks
-1. Spoken: "<>" | On-screen: "<>" | Caption: "<>"
-2. Spoken: "<>" | On-screen: "<>" | Caption: "<>"
-3. Spoken: "<>" | On-screen: "<>" | Caption: "<>"
+## Hook options (10, ranked)
+<all 10 in the option format from hooks.md. #1 is the hook used in the script above.>
 
 ## Film it
 <one take or line by line, and why> | <camera angle and framing tip>
@@ -222,10 +224,22 @@ Works best if your regulars already follow you. Ours were checking stories befor
 Send this to a small shop owner who needs it.
 #smallbakery #homebakery #smallbusinesstips #bakerylife
 
-## Alternate hooks
-1. Spoken: "A regular told me why she stopped coming after 10am." | On-screen: "Why our bread sat unsold" | Caption: "She wasn't wrong."
-2. Spoken: "Dropping prices made our Saturday waste worse." | On-screen: "What actually sold out the shelf" | Caption: "Took us [VERIFY: months] to figure this out."
-3. Spoken: "Every bakery owner knows the 2pm Saturday feeling." | On-screen: "The 9:30AM post that ended it" | Caption: "No new flavors. No discounts."
+## Hook options (10, ranked)
+1. [Mistake or warning + Story cold open] [your pattern, reel 4]
+   Spoken:    "We used to throw out a dozen loaves every Saturday."
+   On-screen: "The menu change that saved our Saturdays" (zero discounts)
+   Caption:   "One sentence from a customer did more than every discount we tried."
+   Frame one: Owner dropping a full tray of unsold loaves into a bin, mid-motion.
+   Why here:  Their own top reels open on a loss, and the bin shot works on mute.
+2. [Pump fake + Proof-first] from bank template (3.4x, <URL>)
+   Spoken:    "Dropping prices made our Saturday waste worse."
+   On-screen: "What actually sold out the shelf"
+   Caption:   "Took us [VERIFY: months] to figure this out."
+   Frame one: Price chalkboard being wiped clean.
+   Why here:  Kills the obvious fix first, so the real one feels earned.
+<3 to 10 in the same format>
+
+(In chat: the top 3 as one line each, then "The other 7 are in the file.")
 
 ## Film it
 One take. It's a story, and the energy is better straight through. | Phone propped on the counter at eye level, back camera, bread in the lower third of frame. Film the shelf B-roll separately the next Saturday morning.
@@ -233,7 +247,7 @@ One take. It's a story, and the energy is better straight through. | Phone propp
 ## Before you film
 - [VERIFY: weekly dollar amount of wasted bread]
 - [VERIFY: how many Saturdays in a row you've sold out]
-- [VERIFY: months it took, for alt hook 2]
+- [VERIFY: months it took, for hook option 2]
 
 Voice gate: 13 Match, 1 Close, 0 Miss | Hard rules: pass | Sweep: clean | Read-aloud: pass | VERIFY: 3
 ```
@@ -255,7 +269,7 @@ Always tell them how to shoot it:
 
 ## QC checklist
 
-Every box passes before the script is shown:
+Every box passes before the script is shown. The timing, length and CTA items are defaults: where the House structure in `voice.md` or a `[confirmed]` line says otherwise, that wins.
 
 - [ ] One core idea, one withheld payoff.
 - [ ] Hook passes the open-loop test. No greeting, no "in this video".
@@ -268,10 +282,10 @@ Every box passes before the script is shown:
 - [ ] Specifics present: numbers, situations, objects. No abstract metaphors.
 - [ ] Every unproven fact is a `[VERIFY: ...]` slot, listed under "Before you film".
 - [ ] No borrowed stories turned into the buyer's first-person claims.
-- [ ] Exactly one CTA (or a deliberate none), in their wording, after the payoff.
+- [ ] One CTA (or a deliberate none, or their signature double close), in their wording, after the payoff.
 - [ ] Visual notes change the picture every few seconds and frame one works on mute.
 - [ ] Caption first line complements the hook, nuance lives in the caption, 3 to 5 hashtags.
-- [ ] Three alternate hooks, each with all three surfaces.
+- [ ] 10 ranked hook options in the file, each with all three surfaces, #1 used in the script.
 - [ ] Nothing breaks an `avoid` lesson in `taste.md`.
 - [ ] VOICE GATE passed and the gate report is attached.
 
@@ -279,8 +293,8 @@ Every box passes before the script is shown:
 
 ## Hand-off
 
-End every delivered script with this line:
+In this order: show the script (with the top 3 hooks), say where it is saved in one line, then ask "Want me to change anything, or is this the one?" On approval, give this line:
 
-> Once you've filmed it, just say "edit it" and Claude Creator Studio will edit the reel for you.
+> Film it, drop the clips in, and say 'edit it'. Claude Creator Studio will edit the reel.
 
-Then log the outcome to `taste.md` when they approve, edit, or reject the script.
+Log the outcome to `taste.md` as a `(buyer)` line when they approve, edit, or reject the script.

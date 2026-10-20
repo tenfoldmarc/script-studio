@@ -2,13 +2,13 @@
 
 Content is a game of knowing, not guessing. Every idea starts from proven signal: something that already beat expectations for a real audience. Your job is to find why it won, then rebuild that win for the buyer.
 
-Before every batch, read in this order: `<state>/taste.md`, `<state>/voice.md` (pillars, stances, proof bank), the buyer's own outliers, competitor outliers, then radar sources (Reddit, X, websites).
+Before every batch, read in this order: `<state>/taste.md`, `<state>/about.md` (goal, offer, proof bank), `<state>/voice.md` (the Pillars section, stances, proof bank), the buyer's own winners, competitor outliers, then radar sources (Reddit, X, websites).
 
 ---
 
 ## Signal strength, strongest first
 
-1. **The buyer's own outliers.** Their audience already voted. Nothing beats this.
+1. **The buyer's own winners:** 1.5x or more of their own median, settled (not fresh). Their audience already voted. Nothing beats this.
 2. **Competitor outliers**, measured against each competitor's own median.
 3. **Radar** (Reddit threads, X posts, websites, comment sections). Weak on proof of performance, strong on timing and on the exact words the audience uses.
 
@@ -18,13 +18,15 @@ Multiplier = a post's views divided by that creator's median views over their la
 
 - A 500K view reel on an account that averages 2M is a flop. A 40K reel on an account that averages 8K is a 5x hit.
 - Raw views measure account size. Multiplier measures the idea, the hook, and the packaging, which are the parts the buyer can copy.
-- Thresholds: **3x or more** is a real outlier. **2x to 3x** is worth reading, weaker as a source. **8x or more**, check for a fluke before trusting it.
+- Competitor thresholds: **3x or more** is a real outlier. **2x to 3x** is worth reading, weaker as a source. **8x or more**, run the fluke test before trusting it.
+- Reels marked trial or repeat are never winners or flops.
 
 ### When to distrust a number
 
 - **Tiny accounts.** A median under roughly 1K views, or fewer than about 15 posts, makes the median unstable. One share from a big page swings it. Treat as radar, not proof.
 - **Posts under 3 days old.** Views are still climbing and the multiplier hasn't settled. Recheck later, don't cite yet.
 - **Flukes.** Trend audio riding a wave, collabs with a bigger account, giveaways, paid boosts, an off-niche meme. If the creator's audience showed up for something other than the idea, the idea didn't win.
+- **The fluke test (8x or more).** Check: the brief marks it `[collab or paid]` (weigh it lightly), the comments are mostly hostile or off-topic (a paid push), frame one is an ad or product branding, or the creator has no other reel above 3x (a one-off). A fluke still counts as evidence of the topic, not of the hook.
 - **Off-niche viral hits.** If the outlier is outside that creator's usual topic, its audience may not be the buyer's audience. Use it only if the through-line to the buyer's buyer holds.
 - **Very old posts** (over about 6 months). Formats go stale. The principle may still hold, the packaging may not.
 
@@ -79,7 +81,7 @@ Example: a competitor's 4.4x reel "I spent a week eating like a 1950s housewife"
 - Re-angle their top performers every few weeks. Only a small share of followers saw the first one, and the buyer tires of the message long before the audience does.
 - Keep the premise, change one or two of: hook, format, illustration (story, list, versus, demo), or audience slice. Stay recognizable but fresh.
 - Their top reels also give you the house structure for `scripting.md` and the hook types that work for them.
-- An idea cluster that keeps winning for them is a pillar. Note it in `voice.md`.
+- An idea cluster that keeps winning for them is a pillar. Note it in the Pillars section of `voice.md`, which is where every card's pillar comes from.
 
 ---
 
@@ -105,18 +107,18 @@ Use the words, not the people. Never name a private person from a thread in a sc
 
 ## Source diversity rules
 
-- **No creator twice in one batch.**
-- **Mix sources.** For a batch of 10, roughly: 2 to 3 from the buyer's own winners, 4 to 5 from competitor outliers, 2 to 3 from radar. Shift the mix when one pool is thin.
+- **No competitor twice in one batch.** The buyer's own reels can source up to 2 cards in a batch of 5.
+- **Mix sources.** For a batch of 5: at least 1 from the buyer's own winners, at least 2 from competitor outliers, at least 1 from radar. Scale it up for bigger batches. Shift the mix when one pool is thin.
 - **No more than 2 ideas from one subreddit or one site.**
-- **Spread across pillars.** Rough default for 10: 4 in core pillars, 3 adjacent angles, 2 stretch formats they haven't tried, 1 contrarian take.
-- **Vary mechanisms and formats.** No more than 3 ideas leaning on the same hook mechanism or the same format.
-- **Never pad.** If the pool can't support 10 clean ideas, deliver fewer and say which pool was thin.
+- **Spread across pillars.** Rough default for 5: 3 in core pillars, 1 adjacent angle, 1 stretch format or contrarian take.
+- **Vary mechanisms and formats.** No more than 2 ideas in 5 leaning on the same hook mechanism or the same format.
+- **Never pad.** If the pool can't support a full batch of clean ideas, deliver fewer and say which pool was thin.
 
 ---
 
 ## Idea card format
 
-Show every idea exactly like this. No em dashes.
+Save every card in full, exactly like this, to `<state>/ideas/YYYY-MM-DD ideas.md` (today's date; append if the file exists). No em dashes. In chat show the buyer only the short form, one card per line: the working title, one line on why it should win with the proof, the pillar. Example: `3. The $0 habit that made my clients' grocery bills shrink | @mealprepcreator's receipt reel ran 5.2x their average | Nutrition on a budget`
 
 ```
 ## <N>. <Working title as an open loop>
@@ -166,10 +168,10 @@ Named phenomena, specific numbers, and real-world containers (an era, a professi
 Run every idea before showing it. Fix or drop any that fail.
 
 1. **Open loop.** The take can't be guessed from the title, and a hook for it comes easily. If you struggle to hook it, the idea is weak.
-2. **Real, read source.** A post you read, a real URL, and a multiplier of 3x or more (or the buyer's own winner). Radar ideas cite the thread.
+2. **Real, read source.** A post you read, a real URL, and a multiplier of 3x or more (or the buyer's own winner at 1.5x or more, settled). Radar ideas cite the thread.
 3. **Principle stated.** The card names why the source won, not just what it was about.
 4. **70/30 holds.** Proven engine kept, buyer's bend present, no forced pitch, not a copy.
-5. **Specific and true.** Real numbers, professions, ages, prices, or named situations. Anything not in the proof bank is marked `[VERIFY]`. No abstract metaphors ("growing a business is like planting a tree").
+5. **Specific and true.** Real numbers, professions, ages, prices, or named situations. Anything not in a proof bank (`voice.md` or `about.md`) is marked `[VERIFY]`. No abstract metaphors ("growing a business is like planting a tree").
 6. **Fits the audience, big enough room.** Serves a pillar, talks to the buyer's viewer (not other creators in their niche), and enough people would care. If it only works for one subculture, widen it.
 7. **Fresh.** Breaks no `avoid` lesson in `taste.md`, doesn't repeat a recent post, and passes the diversity rules.
 
@@ -188,15 +190,22 @@ Run every idea before showing it. Fix or drop any that fail.
 
 ### Format
 
-One short, concrete lesson per line. Start with `lands:` or `avoid:`. Quote the buyer's own words when they gave a reason.
+Start a new file with these two lines:
 
 ```
-2026-10-19 | lands: price-anchor hooks with a real receipt on screen (picked #2 over 9 others)
-2026-10-19 | avoid: "secret" framing, buyer said "feels scammy for my clients"
-2026-10-21 | lands: stories from client calls beat stats, cut every percentage from the draft
-2026-10-21 | avoid: hooks over 10 words, shortened all three top picks
-2026-10-24 | avoid: anything about keto, "not my lane"
-2026-11-02 | lands: script #4 hit 3.9x, two-path story with a kitchen demo (x2)
+# Taste: @<handle>
+Format: YYYY-MM-DD | lands: or avoid: <one concrete lesson> (buyer) or (research)
+```
+
+Then one short, concrete lesson per line. Start with `lands:` or `avoid:`. End with the source: `(buyer)` for what they said or did, `(research)` for what you inferred from the numbers. Quote the buyer's own words when they gave a reason.
+
+```
+2026-10-19 | lands: price-anchor hooks with a real receipt on screen, swapped in hook #2 (buyer)
+2026-10-19 | avoid: "secret" framing, buyer said "feels scammy for my clients" (buyer)
+2026-10-20 | avoid: slow intros, their 3 weakest reels all open with backstory (research)
+2026-10-21 | lands: stories from client calls beat stats, cut every percentage from the draft (buyer)
+2026-10-24 | avoid: anything about keto, "not my lane" (buyer)
+2026-11-02 | lands: script #4 hit 3.9x, two-path story with a kitchen demo (research, x2)
 ```
 
 ### Rules
@@ -205,6 +214,6 @@ One short, concrete lesson per line. Start with `lands:` or `avoid:`. Quote the 
 - **Concrete only.** "Make it engaging" is useless. "Open with the client's exact words from the call" is useful.
 - **Avoid lines are hard constraints.** Never generate an idea, hook, or line that matches one.
 - **Lands lines are a strong bias.** When two ideas are equal on paper, taste breaks the tie.
-- **Newer beats older** when two lessons conflict. The buyer's explicit statement beats an inferred lesson.
+- **`(buyer)` lines beat `(research)` lines** when two lessons conflict. Between lines of the same source, newer beats older.
 - **Consolidate past about 60 lines.** Merge duplicates and keep a count (`x3`) so repeated lessons carry more weight.
 - No em dashes in the taste file either.

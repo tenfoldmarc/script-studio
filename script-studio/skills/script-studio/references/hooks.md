@@ -107,7 +107,9 @@ Rules that apply across all of them:
 
 ## Templatize a competitor's outlier hook
 
-Only bank hooks from posts that qualify as outliers (see `ideas.md`: 3x or more against that creator's own median, not a tiny account, at least 3 days old). Raw views alone never qualify.
+Only bank hooks from posts that qualify as outliers (see `ideas.md`: 3x or more against that creator's own median, not a tiny account, at least 3 days old, never marked trial or repeat). Raw views alone never qualify.
+
+**Fluke test for 8x or more.** Before learning from it, check: the brief marks it `[collab or paid]` (weigh it lightly), the comments are mostly hostile or off-topic (a paid push), frame one is an ad or product branding, or the creator has no other reel above 3x (a one-off). A fluke still counts as evidence of the topic, not of the hook: don't bank its hook.
 
 1. **Capture all four surfaces.** Spoken (first 1 to 3 sentences of the transcript), on-screen (read it off the first-frame screenshot), caption first line, and one line describing frame one.
 2. **Find the surface that carried it.** Usually one does most of the work. Note it.
@@ -129,7 +131,14 @@ Worked example:
 
 ### Hook bank file format
 
-File: `<state>/hook-bank.md`. Append only. Never delete or rewrite an entry. Dedupe by source URL. One entry per line, exactly six fields separated by ` | `, then an indented `why:` line:
+File: `<state>/hook-bank.md`. Append only. Never delete or rewrite an entry. Dedupe by source URL. Start a new file with these two lines:
+
+```
+# Hook bank: @<handle>
+Format: template | mechanism @surface | original line | source URL | views and multiplier | creator, then an indented why: line
+```
+
+Then one entry per line, exactly six fields separated by ` | `, then an indented `why:` line:
 
 ```
 template | mechanism @surface | original line | source URL | views and multiplier | creator
@@ -146,7 +155,7 @@ The [number]-day rule [identity] never break (when [situation]) | Named concept 
 ```
 
 Rules for the bank:
-- The buyer's own outliers go in too, with `self` as the creator. They are the strongest entries.
+- The buyer's own winners (1.5x or more of their own median, settled) go in too, with `self` as the creator. They are the strongest entries.
 - Sort by multiplier when pulling, not by views.
 - Reuse cap: the same template at most once per batch and not again for about 7 days. Tweak it slightly each time.
 
@@ -163,9 +172,10 @@ Rules for the bank:
    - At most 1 wildcard that isn't sourced.
 4. **Every option has three lines:** spoken, on-screen, caption first line. The top 3 also get a frame one note.
 5. **Gate each option:** open-loop test, complement rule, length rules, voice gate quick pass (`voice.md` Part 2), and "does the body pay this off?" Fix or drop any that fail.
-6. **Rank.** Proven signal first (own winners, then source multiplier), then fit to this script's payoff, then voice match, then freshness against the last 10 posts and `taste.md`. Recommend the top 3 with one line each on why.
+6. **Rank.** Proven signal first (own winners, then source multiplier), then fit to this script's payoff, then voice match, then freshness against the last 10 posts and `taste.md`.
+7. **Deliver.** All 10 go in the script file under "Hook options (10, ranked)" in the format below. #1 is the hook in the script. In chat show only the top 3, one line each, and say the other 7 are in the file.
 
-Output format:
+Option format:
 
 ```
 1. [Proof-first + Price anchor] from @source (4.1x, <URL>)  or  [your pattern, reel <N>]
@@ -187,4 +197,4 @@ Example option, for a house cleaning business owner:
    Why here:  Viewers can't resist finding out how they're judged, and it seeds the trust angle the body pays off.
 ```
 
-After the buyer picks, log which hook won and any edits they made to `taste.md` (see `ideas.md`).
+If the buyer swaps in another option or edits the hook, log it in `taste.md` as a `(buyer)` line (see `ideas.md`).

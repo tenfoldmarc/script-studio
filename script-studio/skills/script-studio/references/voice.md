@@ -19,14 +19,14 @@ Read the buyer's `voice.md` fresh before every script. Never write from memory o
 
 ### Pick the calibration set
 
-Use 10 to 15 of the buyer's own reels:
+Ranked by multiplier (views divided by the buyer's own median), never raw views:
 
-- **8 to 10 top reels** ranked by multiplier (views divided by the buyer's own median), not raw views. They show what their audience rewards.
-- **3 to 5 average reels**, close to their median. They show the natural baseline voice. Without them you can't tell voice from hook luck. A phrase that shows up in top AND average reels is voice. A phrase only in one viral reel is probably the topic.
+- **Top reels:** 1.2x or more of their median, up to 8. They show what their audience rewards.
+- **3 to 5 typical reels:** 0.7x to 1.2x. They show the natural baseline voice. Without them you can't tell voice from hook luck. A phrase that shows up in top AND typical reels is voice. A phrase only in one viral reel is probably the topic. If too few typical ones are transcribed, `transcribe --codes "<links>"` for more.
 
-Skip reels where someone else does most of the talking (collabs, interviews, stitches), music-only or text-only posts, and trend audio lip-syncs. If fewer than 5 usable transcripts exist, build the profile anyway, set `status: thin`, and tell the buyer scripts will lean generic until more reels exist. Offer a fallback: they paste 3 to 5 voice notes or captions they wrote themselves.
+Never count reels flagged fresh, trial or repeat. Skip reels where someone else does most of the talking (collabs, interviews, stitches), music-only or text-only posts, and trend audio lip-syncs. If fewer than 5 reels qualify as top, use what exists, set `status: thin`, and tell the buyer scripts will lean generic until more reels exist. Offer a fallback: they paste 3 to 5 voice notes or captions they wrote themselves.
 
-Transcripts come from speech-to-text. Misheard words are not tics. Before you log a "signature phrase," check that it makes sense and isn't a transcription error (brand names and slang get mangled most).
+Transcripts come from speech-to-text, and it mishears names and keywords (the brand, the product, the CTA keyword, platform names) even with their vocab list. Misheard words are not tics. Correct obvious mishearings in your notes, never copy a misheard word into a script, and when a frame shows the real word, trust the frame.
 
 ### What to extract
 
@@ -36,8 +36,8 @@ Work through every dimension. Back every claim with a real quote and a count ("4
 |---|---|---|
 | Openers | The first 1 to 2 sentences of every reel. Question, bold claim, mid-story, callout, reaction? | List them all. Tag each with a hook mechanism from `hooks.md`. Note which ones sit in top reels vs average ones. |
 | Signature phrases | Lines they repeat on purpose ("let's get into it", "here's what nobody tells new agents") | 3+ reels = signature. 2 reels = likely. 1 reel = don't list. |
-| Sentence length and rhythm | Fragments vs long run-ons, how often they stop short for punch | Count words per sentence on 30+ sentences. Record the share under 8 words and the typical longest. |
-| Pace | Fast and dense, or slow with pauses | Words in transcript divided by spoken seconds. This becomes their personal words per second for `scripting.md`. |
+| Rhythm | One-word punches, repeats for emphasis, how often they stop short | Describe with quotes. No sentence-length stats: the transcriber runs sentences together. |
+| Pace | Fast and dense, or slow with pauses | Words per second per format: transcript word count divided by reel duration, averaged separately for list or demo reels and for talking reels. Scripts use the pace of their format. |
 | Energy | Starts at peak or builds, calm teacher, hype, deadpan | Describe in one line with an example. |
 | Swearing | Yes or no, which words, how often, what job (emphasis, humor, frustration) | Count per 100 words. Zero found means a clean voice. Never add swearing to a clean voice. Never exceed the observed rate. |
 | Humor | Self-deprecating, sarcastic, absurd exaggeration, dry, none | Quote 2 examples or write "none observed". |
@@ -45,9 +45,10 @@ Work through every dimension. Back every claim with a real quote and a count ("4
 | Words they never use | Corporate and AI words absent from every transcript, jargon level | Check the sweep list in Part 2 plus niche jargon. Absence across 10+ reels is a strong signal. |
 | Hook types they lean on | Which mechanisms show up most, which ones over-index in top reels | A mechanism that is 3 of their top 5 is their house hook. |
 | House structure | How their best reels are built: seconds to first payoff, story or list, number of stages, CTA position, length | Map their top 3 by multiplier. If 2 of 3 share a shape, that's the template for `scripting.md`. |
-| CTA style | Exact wording, keyword comments, "follow for part 2", DM, link in bio, or no CTA | Quote it. Scripts use their wording, not a generic one. |
+| Pillars | The 3 to 5 topic clusters their winners keep returning to, plus their offer from `about.md` | One line and one proof reel each. |
+| CTA style | How they phrase the ask, and whether they use a double close (the CTA plus a follow line) | Quote it. The ask and keyword themselves live in `about.md`; scripts say them in this wording. |
 | Fillers and tics | "okay so", "listen", "right?", "literally", "like", "honestly" | Split into keep and cut (rules below). |
-| Stories and proof | Real numbers, results, clients, credentials, life events they have said on camera | Copy each with its source reel. This is the proof bank. Only facts from here, or facts the buyer tells you, go into scripts without `[VERIFY]`. |
+| Stories and proof | Real numbers, results, clients, credentials, life events they have said on camera | Copy each with its source reel. This is the on-camera proof bank. Facts they told you live in the proof bank in `about.md`. |
 | Recurring stances | Opinions they repeat ("open houses are dead", "you don't need a meal plan, you need a grocery list") | Useful for contrarian ideas. Quote and count. |
 
 ### Fillers: keep vs cut
@@ -63,19 +64,13 @@ Tag every line in the profile:
 - `[inferred 6/12]` came from transcripts. The fraction is how many reels showed it.
 - `[confirmed]` the buyer stated it or approved it. Confirmed lines are hard rules or strong targets.
 
-After writing the first draft, show the buyer a 5 line summary and ask up to 5 quick questions, then update the tags:
+Their setup answers (swearing yes or no, words and phrases they never say, things they never do) go in as `[confirmed]` hard rules. Show the 5-line voice summary with the research report and let them correct it. No extra round of questions. Each correction becomes a `[confirmed]` line.
 
-1. "You swear in about 1 of every 4 reels. Keep that rate, tone it down, or go clean?"
-2. "Any words or phrases you never want in your mouth?"
-3. "Your CTA is usually '<their wording>'. Keep it as the default?"
-4. "Any topics, claims, or people that are off limits?"
-5. "Anything I listed under your proof that's wrong or you'd rather not repeat?"
-
-Only buyer-confirmed lines go under Hard rules. Never invent a hard rule.
+Only buyer-confirmed lines go under Hard rules. Never invent a hard rule. A `[confirmed]` hard rule beats a signature phrase: if a phrase they use breaks one (hype words vs "no fake hype"), the rule wins.
 
 ### Learning from edits
 
-When the buyer edits a script before approving it, diff their version against yours. A change they make twice (cut a word, swap a phrase, shorten every hook) becomes a `[confirmed]` line in `voice.md`. Log the lesson in `taste.md` too (see `ideas.md`).
+When the buyer edits a script before approving it, diff their version against yours. A change they make twice (cut a word, swap a phrase, shorten every hook) becomes a `[confirmed]` line in `voice.md`. Log the lesson in `taste.md` too, tagged `(buyer)` (see `ideas.md`).
 
 ### Output template for `<state>/voice.md`
 
@@ -87,21 +82,28 @@ type: voice-profile
 handle: @<handle>
 built: <YYYY-MM-DD>
 updated: <YYYY-MM-DD>
-calibration_set: <N> reels (<top N> top, <avg N> average)
+calibration_set: <N> reels (<top N> top, <typical N> typical)
 own_median_views: <number>
-words_per_second: <number>
+pace_talking: <words per second>
+pace_list_demo: <words per second>
 status: thin | draft-inferred | confirmed
 ---
 
-# Voice profile: <name> (@<handle>)
+# Voice profile: @<handle>
 
 ## Voice in one paragraph
-<3 sentences, specific and testable. "Short punchy sentences, mostly under 8 words. Talks to
+<3 sentences, specific and testable. "Short punchy lines, lots of one-word punches. Talks to
 'you guys', swears only for emphasis at the turn, never hedges, opens mid-story." Not
 "friendly and relatable.">
 
 ## Hard rules (confirmed only)
 - <rule> [confirmed]
+<A confirmed hard rule beats a signature phrase. If a phrase they use breaks one, the rule wins:
+note the phrase here as banned.>
+
+## Pillars
+- <pillar>: <one line> | proof: <reel URL>, <multiplier>x [inferred or confirmed]
+<3 to 5, inferred from their winners plus their offer in about.md>
 
 ## Sounds like / never sounds like
 | Sounds like (real quote) | Never sounds like |
@@ -117,10 +119,8 @@ status: thin | draft-inferred | confirmed
 - "<phrase>" | <how and where they use it> [inferred 4/12]
 
 ## Rhythm and pacing
-- Share of sentences under 8 words: <N>%
-- Typical longest sentence: <N> words
-- Words per second: <N>
-- <other habits: one-word punches, repeats for emphasis> [inferred]
+- Pace, talking reels: <N> w/s | list or demo reels: <N> w/s
+- <habits: one-word punches, repeats for emphasis, with quotes> [inferred]
 
 ## Energy
 <one line + quote>
@@ -150,12 +150,12 @@ status: thin | draft-inferred | confirmed
 <beat map of their best shape: hook type, seconds to first payoff, stages, story or list,
 CTA position, typical length and word count>
 
-## CTA style
-- Default: "<exact wording>" [inferred or confirmed]
-- Keyword(s) they already use: <WORD>, or none
+## CTA style (the ask and keyword live in about.md)
+- Wording: "<exact wording>" [inferred or confirmed]
+- Double close (CTA plus a follow line): yes or no [inferred N/N]
 
-## Proof bank (only these facts are safe without [VERIFY])
-- <fact> | said in <reel URL> or "told me <date>"
+## Proof bank (said on camera; told-me facts live in about.md)
+- <fact> | said in <reel URL>
 
 ## Recurring stances
 - "<stance>" [inferred 3/12]
@@ -164,7 +164,7 @@ CTA position, typical length and word count>
 <8 to 12 verbatim lines from top reels, one per line>
 
 ## Calibration set
-| # | URL | Views | Multiplier | Top or average | What makes it them |
+| # | URL | Views | Multiplier | Top or typical | What makes it them |
 |---|---|---|---|---|---|
 
 ## Changelog
@@ -200,11 +200,11 @@ Quick example, for a calm, clean-voiced personal trainer who says "friend":
 
 ### Step 2. Hard rules
 
-Every `[confirmed]` hard rule in `voice.md` is blocking. A violation means the script does not ship until fixed. If the section is empty, there are no extra constraints. Don't invent any.
+Every `[confirmed]` hard rule in `voice.md` and every line under "Never do or say" in `about.md` is blocking. A violation means the script does not ship until fixed, even when the line is one of their signature phrases. If both are empty, there are no extra constraints. Don't invent any.
 
 ### Step 3. AI-tell sweep
 
-Zero tolerance on the content surfaces (spoken lines, on-screen text, caption, title). A phrase on the buyer's confirmed signature list is exempt, once per script.
+Zero tolerance on the content surfaces (spoken lines, on-screen text, caption, title). A phrase on the buyer's signature list is exempt, once per script, unless it breaks a hard rule.
 
 **Punctuation**
 - Em dashes, and spaced hyphens or en dashes used as dashes. Use a period, a comma, or a line break.
@@ -232,17 +232,17 @@ delve, leverage, utilize, unlock, unleash, game-changer, game-changing, seamless
 - **Manipulative teases.** "Stay till the end", "the last one will shock you", "you won't believe #3".
 - **Motivational filler.** "You deserve this", "Your time is now", "Believe in yourself".
 
-A fast first pass catches the mechanical ones:
+A fast first pass on the spoken script section catches the mechanical ones (it skips markdown list markers):
 
 ```bash
-perl -CSD -ne 'print "$.: $_" if /\x{2014}|\x{2013}| - |;|delve|leverage|utiliz|unlock|game.?chang|seamless|robust|elevat|empower|here.s the thing|let me break|in this video|the truth is|let.s dive|it.s not .*, it.s/i' <draft-file>
+perl -CSD -ne '$s=1 if /^## Spoken script/; $s=0 if /^## (?!Spoken script)/; next unless $s; s/^\s*(?:[-*+]|\d+\.)\s+//; print "$.: $_" if /[\x{2014}\x{2013}\x{201C}\x{201D}\x{2018}\x{2019}]| - |;|delve|leverage|utiliz|unlock|unleash|transform|game.?chang|seamless|robust|elevat|empower|next level|here.s the thing|here.s the kicker|what if i told you|buckle up|let me break|in this video|the truth is|let.s dive|it.s not .*, it.s/i' "<script-file>"
 ```
 
-Then read by eye for the structural tells. grep can't see rhythm.
+Then read the spoken lines by eye for the structural tells (grep can't see rhythm), and the on-screen text, caption and hook options for the whole list.
 
 ### Step 4. Read-aloud test
 
-Read every line at the buyer's words-per-second.
+Read every line at the buyer's pace for this script's format (talking, or list or demo).
 
 - **Breath test.** Any line that can't be said in one breath (roughly 15 words) gets split.
 - **Mouth test.** Tongue-twisters, stacked consonants, and words they'd stumble on get swapped.
@@ -257,7 +257,7 @@ Never invent a number, name, date, client, result, price, quote, study, or perso
 - `[VERIFY: the client's first name, or say "a client"]`
 - `[VERIFY: the actual price of the cheaper option]`
 
-Safe without a placeholder: facts from the proof bank in `voice.md`, facts the buyer said in this chat, and widely known facts in their field (still list those under "Before you film" so they can check).
+Safe without a placeholder: facts from the proof banks (`voice.md` for what they said on camera, `about.md` for what they told you), facts the buyer said in this chat, and widely known facts in their field. List widely known facts, and proof bank lines marked "check before filming", under "Before you film" so they can check.
 
 **No biography laundering.** A competitor's story stays theirs. Never turn "I lost 40 pounds" from a source reel into a first-person claim for the buyer. Either attribute it ("a trainer I follow lost...") or swap in a `[VERIFY: your own version of this story]`.
 
