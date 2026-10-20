@@ -87,12 +87,14 @@ They came for scripts, so keep it tight. Three short rounds from them, then you 
    > Integrations, and click the copy button next to your Personal API token. Don't paste it here: just copy it
    > and tell me 'copied'."
    On "copied": `key --clipboard`. `KEY saved`: go on. `KEY NOT_FOUND`: the clipboard had something else, ask them
-   to copy it again. `KEY INVALID`: the token is wrong or revoked, ask them to copy it again from the same page.
+   to copy it again. `KEY INVALID`: the token is wrong or revoked, ask them to copy it again from the same page. A second
+   `KEY NOT_FOUND`: copying is not reaching this computer's clipboard, so ask them to paste the token here instead.
    If they paste it in the chat anyway: save it with `key` reading it from stdin (`printf '%s' '<token>' | PY ...
    key`), never echo it back, and say it is saved.
-4. Round c, while the research runs: start the first full research (see Refresh, all steps, `reddit --period
-   month`). Tell them: "Studying your reels and your competitors now. About 10 to 15 minutes. While that runs, four
-   quick questions." Ask in ONE message:
+4. Round c, while the research runs: start the first full research (see Refresh, `reddit --period month`), but
+   hold `transcribe` until they answer below (their comment keyword goes into `--vocab ... --add` first so the
+   transcriber spells it right), or 2 minutes if they don't answer. Tell them: "Studying your reels and your
+   competitors now. About 5 to 10 minutes. While that runs, four quick questions." Ask in ONE message:
    - What is the one goal for your content right now (followers, leads, sales of X, authority)?
    - What should every reel ask people to do (comment a word, follow, DM, link in bio)? Any keyword you use?
    - Do you swear on camera (yes or no)? Any word or phrase you never say? Anything you never do or touch on camera
@@ -207,4 +209,4 @@ Triggers: "give me tomorrow's reel", "what should I post", "reel ideas", "write 
 - A full refresh costs about $0.50 to $1 of Apify credit (each scrape prints its ceiling as `PLAN ... at most`).
   Apify's free plan includes $5 a month. Never run more than one full refresh a day unless they ask.
 - Reels only (Instagram) in this version. Private accounts can't be studied.
-- Transcription runs on their computer for free. About 10 to 20 seconds a reel.
+- Transcription runs on their computer for free. About 10 seconds a reel.

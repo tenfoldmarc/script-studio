@@ -283,7 +283,7 @@ Every box passes before the script is shown. The timing, length and CTA items ar
 - [ ] One CTA (or a deliberate none, or their signature double close), in their wording, after the payoff.
 - [ ] Visual notes change the picture every few seconds and frame one works on mute.
 - [ ] Caption first line complements the hook, nuance lives in the caption, 3 to 5 hashtags.
-- [ ] 10 ranked hook options in the file, each with all three surfaces, #1 used in the script.
+- [ ] The buyer's chosen hook is in the script; every other option is under Other hooks, each with all three surfaces.
 - [ ] Nothing breaks an `avoid` lesson in `taste.md`.
 - [ ] VOICE GATE passed and the gate report is attached.
 

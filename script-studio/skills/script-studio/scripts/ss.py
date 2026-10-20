@@ -427,13 +427,14 @@ def cmd_scrape(a):
     if not handles:
         raise SystemExit('FAILED no handles to scrape (profile has none)')
     est = len(handles) * a.limit * REEL_PRICE + 0.01
-    print('PLAN %d account(s) x up to %d reels, about $%.2f of Apify credit at most' % (len(handles), a.limit, est), flush=True)
+    cap = max(min(a.max_usd, est * 3), est * 1.3)
+    print('PLAN %d account(s) x up to %d reels, about $%.2f of Apify credit (hard cap $%.2f)' % (len(handles), a.limit, est, cap), flush=True)
     # trial reels go to non-followers only and look like flops: never part of the research
-    inp = {'username': handles, 'resultsLimit': a.limit, 'skipPinnedPosts': False, 'skipTrialReels': True}
+    inp = {'username': handles, 'resultsLimit': a.limit, 'skipPinnedPosts': True, 'skipTrialReels': True}
     if a.since:
         inp['onlyPostsNewerThan'] = a.since
     try:
-        items = run_actor(REEL_ACTOR, inp, max(a.max_usd, est * 1.3), 'reels')
+        items = run_actor(REEL_ACTOR, inp, cap, 'reels')
     except NeedConnector:
         print('NEXT run that actor with the Apify tool (wait until it finishes), then: import <datasetId>')
         return
@@ -451,6 +452,14 @@ def ingest(items, label, expected=()):
             continue
         by.setdefault(r['handle'], []).append(r)
     for h, rs in by.items():
+        # Pinned reels are not always flagged: an old reel sitting in the first 3 places of the grid, posted weeks
+        # before the reels around it, is a pinned one. Kept, but never a winner, a flop or part of the median.
+        later = sorted([parse_ts(r['posted'] or '') for r in rs[3:9] if parse_ts(r['posted'] or '')])
+        if later:
+            for r in rs[:3]:
+                ts = parse_ts(r['posted'] or '')
+                if ts and ts < later[0] - dt.timedelta(days=21):
+                    r['pinned'] = True
         med, reels = save_reels(h, rs)
         top = sorted([r for r in reels if counts(r)], key=lambda r: r['x'], reverse=True)[:5]
         print('ACCOUNT @%s: %d reels, median %s views. Best: %s' % (
@@ -512,7 +521,7 @@ def cmd_quick(a):
         raise SystemExit('FAILED no handles in the profile')
     est = len(handles) * a.limit * REEL_PRICE + 0.01
     print('PLAN newest reels of %d account(s) from the last %s, about $%.2f of Apify credit at most' % (len(handles), a.since, est), flush=True)
-    inp = {'username': handles, 'resultsLimit': a.limit, 'onlyPostsNewerThan': a.since, 'skipTrialReels': True}
+    inp = {'username': handles, 'resultsLimit': a.limit, 'onlyPostsNewerThan': a.since, 'skipTrialReels': True, 'skipPinnedPosts': True}
     if not token():   # Apify connected inside Claude: print both plans, Claude runs them and imports
         print('CONNECTOR reels %s' % REEL_ACTOR.replace('~', '/'))
         print('INPUT %s' % json.dumps(inp, ensure_ascii=False))
@@ -580,12 +589,12 @@ def pick_for_transcripts(a):
         d = read_json(lib_file(h))
         if not d:
             continue
-        settled = [r for r in d['reels'] if counts(r)]
+        settled = [r for r in d['reels'] if counts(r) and r.get('original_audio') is not False]
         ranked = sorted(settled, key=lambda r: r['x'], reverse=True)
         if h == own:
             chosen = ranked[:a.own_top] + [r for r in ranked[::-1][:a.own_bottom] if r not in ranked[:a.own_top]]
             # a few middle-of-the-road ones too: voice is learned from typical posts, not only hits
-            mid = ranked[len(ranked) // 2 - 1: len(ranked) // 2 + 1] if len(ranked) > 6 else []
+            mid = [r for r in ranked if 0.7 <= r['x'] <= 1.2][:5] if len(ranked) > 6 else []   # typical reels: how they really talk
             chosen += [r for r in mid if r not in chosen]
         else:
             chosen = [r for r in ranked if r['x'] >= a.min_x][:a.per_creator]
@@ -709,7 +718,7 @@ def atom_entries(xml):
     return out
 
 
-BOT_HINTS = ('i am a bot', 'automoderator', 'featured it on our discord', 'welcome to /r/', 'welcome to r/',
+BOT_HINTS = ('generated automatically', 'tl;dr of the discussion', 'i am a bot', 'automoderator', 'featured it on our discord', 'welcome to /r/', 'welcome to r/',
              'your post has been removed', 'please contact the moderators', 'this is an automated')
 
 
@@ -787,7 +796,7 @@ def x_ingest(items):
         out.append({'source': 'x', 'where': '@' + ((t.get('author') or {}).get('userName') or '?'), 'text': t.get('text', '')[:600],
                     'likes': t.get('likeCount', 0), 'reposts': t.get('retweetCount', 0), 'replies': t.get('replyCount', 0),
                     'views': t.get('viewCount', 0), 'url': t.get('url') or t.get('twitterUrl'), 'posted': t.get('createdAt', '')})
-    write_json(os.path.join(P['research'], 'radar', 'x-%s.json' % today()), out)
+    write_json(os.path.join(P['research'], 'radar', 'x-%s-%d.json' % (today(), len(out))), out)
     print('X: %d posts kept' % len(out))
     for it in sorted(out, key=lambda x: x.get('likes') or 0, reverse=True)[:15]:
         print('  %6s likes  %s  %s' % (it['likes'], it['where'], first_line(it['text'].replace('\n', ' '), 90)))
