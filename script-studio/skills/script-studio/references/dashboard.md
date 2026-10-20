@@ -1,16 +1,27 @@
 # The research dashboard
 
 One page that shows the buyer their research in their own branding: their reels ranked against their usual, their
-hook library, competitor breakouts and the topic radar. `PY "SS/scripts/dashboard.py" --open` builds
-`ST/dashboard/index.html` (plus `ST/dashboard/img/`) and opens it. It prints `DASHBOARD <path>`. Never show that line.
+hook library, competitor breakouts and the topic radar. `PY "SS/scripts/dashboard.py"` writes it to `ST/dashboard/`:
+- `index.html`: the fixed page (layout, brand colors and fonts, tabs, filters, search, the reel dialog). Written only
+  the first time, when `ST/brand.json` or the logo changed, or with `--rebuild`.
+- `data.js`: everything the page shows. Rewritten on every run. An open dashboard reloads it every 20 seconds and
+  redraws itself in place, keeping the buyer's tab, filters, search and scroll, with a small "Updated just now" note.
+- `img/`: reel pictures. Only new ones are fetched; ones the page no longer shows are removed.
+It prints `DASHBOARD <path>` and then `UPDATED data` or `BUILT shell+data`. Never show those lines.
 
-## When to build it
-- At the end of setup, right after the research report. Fill `ST/brand.json` first (below).
-- After every refresh (full or radar only), once `brief` has run.
-- After any hook bank update, and after `ST/voice.md` changes its Pillars or Hook types.
-- Whenever they ask: "show me my dashboard", "open my research", "what does my research look like".
-Build it with `--open` and tell the buyer in one line, for example: "Your research dashboard is open in your
-browser. It updates every time we refresh." Never paste the file path unless they ask where it lives.
+## When to run it
+- First build, at the end of setup right after the research report: fill `ST/brand.json` first (below), then run
+  it with `--open` and tell the buyer in one line, for example: "Your research dashboard is open in your browser.
+  Keep it open: it updates itself every time we refresh."
+- After every research run (full refresh or radar only, once `brief` has run), after any hook bank update, and
+  after `ST/voice.md` changes its Pillars or Hook types: run it without `--open`. It only refreshes the data, and
+  an open dashboard picks the change up by itself within 20 seconds, so never reopen it and never tell them to
+  reload. One line is enough, for example: "Your dashboard has the new numbers."
+- Whenever they ask: "show me my dashboard", "open my research", "what does my research look like": run it with
+  `--open`.
+- `--rebuild` only after a brand change (colors, fonts, logo) or if the page looks broken. A brand.json edit is
+  picked up on its own anyway; `--rebuild` just forces it.
+Never paste the file path unless they ask where it lives.
 
 ## Filling ST/brand.json (once, at setup)
 ```json
@@ -53,10 +64,10 @@ muted gold or cream accent. Body font: Inter unless the vibe needs something els
 If they skip it, leave `brand.json` out: the page uses a calm neutral default theme.
 
 ## Changes later
-"Change my dashboard colors / font / logo": edit only that field in `ST/brand.json`, rebuild with `--open`. Never
-rewrite the rest. If they rebrand their site, fetch it again and redo steps 2 to 7.
+"Change my dashboard colors / font / logo": edit only that field in `ST/brand.json`, then run with
+`--rebuild --open` (a new look needs the page opened again; new data alone never does). Never rewrite the rest. If they rebrand their site, fetch it again and redo steps 2 to 7.
 
 ## What the page never shows
 Scripts, ideas cards, the taste file, STATUS lines or keys. It reads the research only. Every label is in plain
 words ("3.2x your usual"), with no em dashes. When a section is empty, the page tells them what to say to you; if
-they say it, do that job (usually a refresh) and rebuild.
+they say it, do that job (usually a refresh) and run the script again.

@@ -135,7 +135,8 @@ Full refresh, in this order. Long steps run in the background; tell the buyer wh
 5. `brief`, then read `ST/research/brief.md` in full, and look at the frame images it lists for on-screen hook text.
 6. Update the hook bank with new outliers, note new winners and flops in `ST/voice.md` (House structure, Hook types
    they lean on, Pillars) and tell them in two or three lines what changed since last time.
-7. Rebuild the dashboard: `PY "SS/scripts/dashboard.py"` (add `--open` only if they asked to see it).
+7. Refresh the dashboard: `PY "SS/scripts/dashboard.py"`. It only rewrites its data, and an open dashboard
+   updates itself within 20 seconds, so never reopen it unless they ask to see it (`--open`). Same after `quick`.
 
 ## Fresh research for every ideas ask
 
@@ -190,7 +191,7 @@ Triggers: "give me tomorrow's reel", "what should I post", "reel ideas", "write 
 - **"What are my best hooks" / "what works on my account" / "show my competitors"**: `PY "SS/scripts/dashboard.py"
   --open`, then two or three lines on what stands out. The research report if they want it in the chat.
 - **"Open my dashboard"**: `PY "SS/scripts/dashboard.py" --open`. **"Make my dashboard match my brand"**: redo
-  `ST/brand.json` (`references/dashboard.md`), then rebuild with `--open`.
+  `ST/brand.json` (`references/dashboard.md`), then `PY "SS/scripts/dashboard.py" --rebuild --open`.
 - **"Add a source" / "check X for ideas"**: `profile set --sites "<url>" --add` (or `--subreddits`, `--x-handles`,
   `--x-search`), then use it in the next research.
 - **"Research my competitors" / "add a competitor"**: update the profile, scrape just those (`scrape "a,b"`),

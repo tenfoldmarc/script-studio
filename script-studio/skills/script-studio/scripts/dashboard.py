@@ -1,21 +1,27 @@
 #!/usr/bin/env python3
 """Script Studio dashboard: the buyer's research on one page, in their own branding.
 
-  PY dashboard.py [--open]
+  PY dashboard.py [--open] [--rebuild]
 
 Reads the buyer's Script Studio folder (env SCRIPT_STUDIO_STATE, else the per-OS data folder for 'script-studio',
-the same folder ss.py uses) and writes <state>/dashboard/index.html, one self-contained page, plus the images it
-shows in <state>/dashboard/img/. Prints one line: DASHBOARD <path>. --open opens it in the default browser.
+the same folder ss.py uses) and writes into <state>/dashboard/:
+  index.html  the fixed shell: layout, brand styles, and the JS that renders every tab, filter, search and dialog.
+              Written only when missing, when brand.json (or the logo, or this template) changed, or with --rebuild.
+  data.js     window.SS_DATA, everything the page shows. Rewritten on every run (temp file + rename). An open page
+              loads it again every 20 s and re-renders in place, so a refresh never needs the page reopened.
+  img/        the reel pictures. Only new ones are copied or downloaded (shrunk to 540px JPEG with the Creator
+              Studio's ffmpeg when it is installed); pictures the page no longer shows are removed.
+Prints DASHBOARD <path>, then BUILT shell+data or UPDATED data. --open opens it in the default browser.
 Standard library only, Python 3.9+. Never writes outside <state>/dashboard/.
 """
 import argparse
 import datetime as dt
+import hashlib
 import html
 import json
 import os
 import re
 import shutil
-import statistics
 import subprocess
 import sys
 import urllib.parse
@@ -133,11 +139,6 @@ def ago(day):
 def first_line(s, n=140):
     s = (s or '').strip().split('\n')[0].strip()
     return s if len(s) <= n else s[:n - 1].rstrip() + '…'
-
-
-def md_inline(s):
-    """Escaped text with **bold** kept."""
-    return re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', esc(s))
 
 
 # ---------- color ----------
@@ -431,6 +432,40 @@ def image_job(h, r):
 
 
 MAGIC = ((b'\xff\xd8\xff', '.jpg'), (b'\x89PNG', '.png'), (b'RIFF', '.webp'))
+THUMB_W = 540
+
+
+def find_ffmpeg():
+    """The Creator Studio's ffmpeg, when it is installed. None otherwise: images are then kept as they come."""
+    cfg = read_json(os.path.join(data_dir('video-studio'), '.platform.json'), {}) or {}
+    f = cfg.get('ffmpeg') if isinstance(cfg, dict) else None
+    return f if isinstance(f, str) and os.path.isfile(f) else None
+
+
+FFMPEG = None
+
+
+def shrink(src, dest):
+    """A 540px wide JPEG of src at dest. False (and nothing written) when ffmpeg is missing or fails."""
+    if not FFMPEG:
+        return False
+    tmp = dest + '.part.jpg'
+    try:
+        r = subprocess.run(
+            [FFMPEG, '-nostdin', '-y', '-loglevel', 'error', '-i', src, '-frames:v', '1',
+             '-vf', "scale='min(%d,iw)':-2" % THUMB_W, '-q:v', '4', '-f', 'image2', '-update', '1', tmp],
+            stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=40,
+            creationflags=0x08000000 if sys.platform.startswith('win') else 0)
+        if r.returncode == 0 and os.path.isfile(tmp) and os.path.getsize(tmp) > 0:
+            os.replace(tmp, dest)
+            return True
+    except Exception:
+        pass
+    try:
+        os.remove(tmp)
+    except Exception:
+        pass
+    return False
 
 
 def run_image_job(job):
@@ -440,10 +475,12 @@ def run_image_job(job):
         if os.path.isfile(dest) and os.path.getsize(dest) > 0:
             if kind == 'get' or os.path.getmtime(dest) >= os.path.getmtime(src):
                 return key, 'img/' + key + ext
+    dest = os.path.join(IMG, key + '.jpg')
     try:
         if kind == 'copy':
-            dest = os.path.join(IMG, key + '.jpg')
-            shutil.copyfile(src, dest)
+            if not shrink(src, dest):
+                shutil.copyfile(src, dest + '.part')
+                os.replace(dest + '.part', dest)
             return key, 'img/' + key + '.jpg'
         req = urllib.request.Request(src, headers={'User-Agent': UA})
         with urllib.request.urlopen(req, timeout=10) as r:
@@ -453,131 +490,72 @@ def run_image_job(job):
         ext = next((e for m, e in MAGIC if data.startswith(m)), None)
         if not ext:
             return key, None
-        dest = os.path.join(IMG, key + ext)
-        with open(dest + '.part', 'wb') as fh:
+        raw = os.path.join(IMG, key + '.part' + ext)
+        with open(raw, 'wb') as fh:
             fh.write(data)
-        os.replace(dest + '.part', dest)
+        if shrink(raw, dest):
+            os.remove(raw)
+            return key, 'img/' + key + '.jpg'
+        os.replace(raw, os.path.join(IMG, key + ext))
         return key, 'img/' + key + ext
     except Exception:
         return key, None
 
 
 def prepare_images(jobs):
+    """Copies or downloads only the pictures not in img/ yet (or older than their frame)."""
+    global FFMPEG
     os.makedirs(IMG, exist_ok=True)
     uniq = {}
     for j in jobs:
         if j and j[0] not in uniq:
             uniq[j[0]] = j
+    FFMPEG = find_ffmpeg()
     with ThreadPoolExecutor(max_workers=8) as ex:
         return dict(ex.map(run_image_job, uniq.values()))
 
 
-def copy_logo(path):
+def tidy_images(used):
+    """Removes reel pictures the page no longer shows, and leftovers of interrupted writes. The logo stays."""
+    keep = {os.path.basename(p) for p in used if p}
+    for f in os.listdir(IMG) if os.path.isdir(IMG) else []:
+        p = os.path.join(IMG, f)
+        if f in keep or f.startswith('logo.') or not os.path.isfile(p):
+            continue
+        if '.part' in f or ('--' in f and f.lower().endswith(('.jpg', '.png', '.webp'))):
+            try:
+                os.remove(p)
+            except Exception:
+                pass
+
+
+def logo_source(path):
     if not path:
         return None
-    p = path if os.path.isabs(path) else os.path.join(ST, path)
-    p = os.path.expanduser(p)
+    p = os.path.expanduser(path if os.path.isabs(path) else os.path.join(ST, path))
     ext = os.path.splitext(p)[1].lower()
     if not os.path.isfile(p) or ext not in ('.png', '.jpg', '.jpeg', '.svg', '.webp'):
         return None
+    return p
+
+
+def copy_logo(path):
+    p = logo_source(path)
+    if not p:
+        return None
+    ext = os.path.splitext(p)[1].lower()
+    dest = os.path.join(IMG, 'logo' + ext)
     os.makedirs(IMG, exist_ok=True)
     try:
-        shutil.copyfile(p, os.path.join(IMG, 'logo' + ext))
+        if not os.path.isfile(dest) or os.path.getmtime(dest) < os.path.getmtime(p):
+            shutil.copyfile(p, dest + '.part')
+            os.replace(dest + '.part', dest)
         return 'img/logo' + ext
     except Exception:
         return None
 
 
-# ---------- page pieces ----------
-
-def say(cmd):
-    return '<p class="say"><span>Say</span><b>%s</b></p>' % esc(cmd)
-
-
-def empty(title, body, cmd=None):
-    return '<div class="empty"><p class="e-title">%s</p><p>%s</p>%s</div>' % (esc(title), esc(body), say(cmd) if cmd else '')
-
-
-def thumb_html(src, h, alt):
-    if src:
-        return '<img src="%s" alt="%s" loading="lazy" decoding="async">' % (esc(src), esc(alt))
-    return '<div class="noimg"><span>%s</span><small>No preview</small></div>' % esc((h or '?')[:1].upper())
-
-
-def reel_detail(h, r, img, whose, note=''):
-    """The full view of a reel, shown in the dialog."""
-    segs = segments(h, r['code'])
-    text = transcript_text(h, r['code'])
-    if segs:
-        body = ''.join('<p class="tline%s"><span class="ts">%s</span><span>%s</span></p>' % (
-            ' is-hook' if (s.get('start') or 0) < 4 else '', fmt_ts(s.get('start')), esc(s['text'].strip())) for s in segs)
-        tr = '<h4>What was said</h4><p class="hint">The highlighted lines are the first 4 seconds: the spoken hook.</p><div class="transcript">%s</div>' % body
-    elif text:
-        tr = '<h4>What was said</h4><div class="transcript"><p>%s</p></div>' % esc(text)
-    else:
-        tr = '<h4>What was said</h4>' + (empty('Not transcribed yet', 'This one gets transcribed in a later refresh once it has settled.', 'refresh my research')
-                                         if whose == 'your' else empty('Not transcribed yet', 'Want the exact words? Ask for this reel by its link.', 'transcribe this reel ' + r.get('url', '')))
-    cap = (r.get('caption') or '').strip()
-    coms = [c for c in (r.get('top_comments') or []) if good_comment(c)][:6]
-    stats = [('%s' % fmt_n(r.get('views')), 'views'), (fmt_n(r.get('likes')), 'likes'), (fmt_n(r.get('comments')), 'comments')]
-    if r.get('duration'):
-        stats.append((fmt_len(r['duration']), 'long'))
-    return (
-        '<div class="d-grid"><div class="d-media">%s</div><div class="d-info">'
-        '<p class="d-eyebrow">@%s · posted %s</p>'
-        '<p class="d-x"><b>%s</b> %s usual</p>%s'
-        '<div class="d-stats">%s</div>'
-        '<a class="btn" href="%s" target="_blank" rel="noopener">Open the post <span aria-hidden="true">↗</span></a>'
-        '%s%s%s</div></div>') % (
-        thumb_html(img, h, 'First frame of the reel'), esc(h), esc(fmt_date(r.get('posted'), True)),
-        esc(fmt_x(r.get('x'))), whose, ('<p class="d-note">%s</p>' % esc(note)) if note else '',
-        ''.join('<span><b>%s</b>%s</span>' % (esc(a), esc(b)) for a, b in stats), esc(r.get('url', '#')), tr,
-        ('<h4>Caption</h4><p class="d-cap">%s</p>' % esc(cap).replace('\n', '<br>')) if cap else '',
-        ('<h4>What people commented</h4><ul class="d-coms">%s</ul>' % ''.join('<li>%s</li>' % esc(first_line(c, 300)) for c in coms)) if coms else '')
-
-
-class Page:
-    def __init__(self):
-        self.templates = []
-        self.n = 0
-
-    def detail(self, html_body):
-        self.n += 1
-        tid = 'd%d' % self.n
-        self.templates.append('<template id="%s">%s</template>' % (tid, html_body))
-        return tid
-
-
-def reel_card(pg, h, r, img, whose, rank=None, label=None, group='', hide=False):
-    hook = hook_line(h, r['code']) if r.get('transcribed') or os.path.isfile(os.path.join(reel_dir(h, r['code']), 'transcript.json')) else ''
-    cap = first_line(r.get('caption'), 160)
-    x = r.get('x') or 0
-    tone = 'win' if x >= 1.2 else ('weak' if x < 0.7 else 'mid')
-    note = ''
-    if label:
-        note = label[1]
-    tid = pg.detail(reel_detail(h, r, img, whose, note))
-    flags = ''
-    if r.get('collab'):
-        flags += '<span class="flag">Collab or paid: weigh lightly</span>'
-    if label:
-        flags += '<span class="flag grey">%s</span>' % esc(label[0])
-    main = ('<p class="k">Spoken hook</p><p class="hook">“%s”</p>' % esc(first_line(hook, 220))) if hook else \
-        ('<p class="k">Caption</p><p class="hook">%s</p>' % esc(cap or 'No caption'))
-    capline = ('<p class="cap">%s</p>' % esc(cap)) if (hook and cap) else ''
-    meta = [fmt_n(r.get('views')) + ' views', fmt_date(r.get('posted')), fmt_len(r.get('duration'))]
-    return (
-        '<article class="card reel%s%s" data-group="%s" data-open="%s" tabindex="0" role="button" aria-label="Open details for this reel">'
-        '<div class="thumb">%s<span class="badge %s">%s <em>%s usual</em></span>%s</div>'
-        '<div class="c-body">%s%s%s<div class="meta">%s</div>'
-        '<div class="c-foot"><span class="more-link">%s</span><a href="%s" target="_blank" rel="noopener" class="ext">Open post <span aria-hidden="true">↗</span></a></div>'
-        '</div></article>') % (
-        ' is-off' if label else '', ' is-more' if hide else '', group, tid, thumb_html(img, h, 'Reel by @' + h),
-        'off' if label else tone, esc(fmt_x(x)), whose, ('<span class="rank">%d</span>' % rank) if rank else '',
-        flags and '<div class="flags">%s</div>' % flags, main, capline,
-        ''.join('<span>%s</span>' % esc(m) for m in meta if m),
-        'Read transcript' if hook else 'Details', esc(r.get('url', '#')))
-
+# ---------- the page's data (written to data.js; the shell's JS turns it into markup) ----------
 
 def off_label(r):
     if r.get('fresh'):
@@ -593,12 +571,65 @@ def off_label(r):
     return None
 
 
-def pulse_chart(reels, med):
+def reel_view(h, r, img, whose):
+    """Everything the card and the dialog show for one reel, already formatted."""
+    code = r.get('code') or ''
+    segs = segments(h, code)
+    has_tr = r.get('transcribed') or os.path.isfile(os.path.join(reel_dir(h, code), 'transcript.json'))
+    hook = hook_line(h, code) if has_tr else ''
+    x = r.get('x') or 0
+    v = {
+        'h': h, 'url': r.get('url', '#'), 'img': img or '', 'whose': whose,
+        'x': fmt_x(x), 'tone': 'win' if x >= 1.2 else ('weak' if x < 0.7 else 'mid'),
+        'views': fmt_n(r.get('views')), 'likes': fmt_n(r.get('likes')), 'comments': fmt_n(r.get('comments')),
+        'dur': fmt_len(r.get('duration')), 'posted': fmt_date(r.get('posted')), 'posted_full': fmt_date(r.get('posted'), True),
+        'cap1': first_line(r.get('caption'), 160), 'cap': (r.get('caption') or '').strip(), 'hook': first_line(hook, 220),
+        'segs': [[fmt_ts(s.get('start')), s['text'].strip(), 1 if (s.get('start') or 0) < 4 else 0] for s in segs],
+        'text': '' if segs else transcript_text(h, code),
+        'coms': [first_line(c, 300) for c in [c for c in (r.get('top_comments') or []) if good_comment(c)][:6]],
+    }
+    if r.get('duration'):
+        v['hasdur'] = 1
+    if r.get('collab'):
+        v['collab'] = 1
+    if 'url' not in r:
+        v['nourl'] = 1
+    return v
+
+
+class Reels:
+    """Each reel the page shows, stored once and referenced by key."""
+
+    def __init__(self, imgs):
+        self.imgs = imgs
+        self.map = {}
+
+    def key(self, h, r, whose):
+        k = '%s/%s' % (h, r.get('code') or '')
+        if k not in self.map:
+            self.map[k] = reel_view(h, r, self.imgs.get(safe_name(h, r.get('code') or '')), whose)
+        return k
+
+
+def card_item(k, rank=None, label=None, group='', hide=False):
+    it = {'k': k}
+    if rank:
+        it['rank'] = rank
+    if label:
+        it['label'] = list(label)
+    if group:
+        it['group'] = group
+    if hide:
+        it['hide'] = 1
+    return it
+
+
+def pulse_data(reels, med):
     """Every settled reel, oldest to newest, above or below the usual (log scale)."""
     import math
     rs = sorted(reels, key=lambda r: r.get('posted') or '')
     if len(rs) < 3:
-        return ''
+        return None
     xs = [max(0.1, r['x'] or 0.1) for r in rs]
     up = max(math.log10(max(xs)), 0.3)
     dn = max(math.log10(1 / min(xs)), 0.3)
@@ -607,220 +638,115 @@ def pulse_chart(reels, med):
         v = math.log10(x)
         cls = 'win' if x >= 1.2 else ('weak' if x < 0.7 else 'mid')
         pct = abs(v) / (up if v >= 0 else dn) * 100
-        bars.append('<a class="pb %s" href="%s" target="_blank" rel="noopener" title="%s · %s views · %s your usual">'
-                    '<i style="--h:%.1f%%" class="%s"></i></a>' % (
-                        cls, esc(r.get('url', '#')), esc(fmt_date(r.get('posted'))), esc(fmt_n(r.get('views'))),
-                        esc(fmt_x(x)), max(pct, 2.5), 'u' if v >= 0 else 'd'))
+        bars.append([cls, r.get('url', '#'), '%s · %s views · %s your usual' % (fmt_date(r.get('posted')), fmt_n(r.get('views')), fmt_x(x)),
+                     '%.1f' % max(pct, 2.5), 'u' if v >= 0 else 'd'])
     best = max(rs, key=lambda r: r['x'])
-    return ('<figure class="pulse"><figcaption><span>Every settled reel, oldest to newest</span>'
-            '<span class="pl"><span><i class="sw win"></i>above your usual</span><span><i class="sw weak"></i>below</span><span><i class="sw line"></i>your usual, %s views</span></span></figcaption>'
-            '<div class="pchart" style="--up:%.3f;--dn:%.3f"><div class="mid-line"></div>%s</div>'
-            '<p class="pcap">Tallest bar: %s your usual, %s.</p></figure>') % (
-        esc(fmt_n(med)), up / (up + dn), dn / (up + dn), ''.join(bars), esc(fmt_x(best['x'])), esc(fmt_date(best.get('posted'))))
+    return {'med': fmt_n(med), 'up': '%.3f' % (up / (up + dn)), 'dn': '%.3f' % (dn / (up + dn)), 'bars': bars,
+            'bx': fmt_x(best['x']), 'bd': fmt_date(best.get('posted'))}
 
 
-# ---------- sections ----------
-
-def section_my_reels(pg, own, od, imgs):
+def data_my(own, od, rv):
     if not own:
-        return empty('No account set up yet', 'Tell Claude your Instagram handle and it studies your reels for you.', 'set up Script Studio')
+        return {'state': 'noaccount'}
     if not od:
-        return empty('Your reels are not studied yet', 'Claude collects your public reels, ranks them against your own usual and transcribes the best and the weakest.', 'refresh my research')
+        return {'state': 'nostudy'}
     reels = od['reels']
     ranked = sorted([r for r in reels if counts(r) and not r.get('suspect')], key=lambda r: r['x'], reverse=True)
     off = [r for r in reels if not (counts(r) and not r.get('suspect'))]
-    n_win = sum(1 for r in ranked if r['x'] >= 1.2)
-    n_weak = sum(1 for r in ranked if r['x'] < 0.7)
-    cards = []
+    items = []
     for i, r in enumerate(ranked, 1):
         g = 'win' if r['x'] >= 1.2 else ('weak' if r['x'] < 0.7 else 'mid')
-        cards.append(reel_card(pg, own, r, imgs.get(safe_name(own, r['code'])), 'your', rank=i, group=g))
-    seg = ('<div class="seg" role="group" aria-label="Filter your reels">'
-           '<button class="on" data-filter="all">All <span>%d</span></button>'
-           '<button data-filter="win">Winners, 1.2x+ <span>%d</span></button>'
-           '<button data-filter="weak">Weakest, under 0.7x <span>%d</span></button></div>') % (len(ranked), n_win, n_weak)
-    out = ['<div class="sec-head"><div><h2>My reels</h2><p>Ranked by how far each one beat your usual. Tap a reel to read exactly what you said.</p></div>%s</div>' % seg]
-    out.append(pulse_chart(ranked, od.get('median_views')))
-    if cards:
-        out.append('<div class="grid reels" id="my-grid">%s</div>' % ''.join(cards))
-        out.append('<div class="empty filter-empty" hidden><p class="e-title">Nothing in this group yet</p><p>Try another filter.</p></div>')
-    else:
-        out.append(empty('No settled reels yet', 'Reels need about 3 days before their views settle. Check back after your next refresh.', 'refresh my research'))
-    if off:
-        off.sort(key=lambda r: r.get('posted') or '', reverse=True)
-        oc = [reel_card(pg, own, r, imgs.get(safe_name(own, r['code'])), 'your', label=off_label(r), hide=i >= 8) for i, r in enumerate(off)]
-        more = ('<button class="more" data-more>Show all %d</button>' % len(off)) if len(off) > 8 else ''
-        out.append('<div class="sub-head"><h3>Not counted yet</h3><p>Too new, a repeat, or suspiciously low. They never count toward your usual or the ranking.</p></div>'
-                   '<div class="grid reels off-grid">%s</div>%s' % (''.join(oc), more))
-    return ''.join(out)
+        items.append(card_item(rv.key(own, r, 'your'), rank=i, group=g))
+    off.sort(key=lambda r: r.get('posted') or '', reverse=True)
+    return {
+        'state': 'ok',
+        'n': [len(ranked), sum(1 for r in ranked if r['x'] >= 1.2), sum(1 for r in ranked if r['x'] < 0.7)],
+        'pulse': pulse_data(ranked, od.get('median_views')),
+        'ranked': items,
+        'off': [card_item(rv.key(own, r, 'your'), label=off_label(r), hide=i >= 8) for i, r in enumerate(off)],
+    }
 
 
-def section_hooks(pg, own, od, imgs, bank, voice):
-    out = ['<div class="sec-head"><div><h2>My hook library</h2><p>Opening lines that already won, as templates you can reuse. Your own first, then the best from around you.</p></div></div>']
+def data_hooks(own, od, rv, bank, voice):
     wins = []
     if od:
         for r in sorted([r for r in od['reels'] if counts(r) and not r.get('suspect') and r['x'] >= 1.2], key=lambda r: r['x'], reverse=True):
             hk = hook_line(own, r['code'])
             if hk:
-                wins.append((r, hk))
-    out.append('<div class="sub-head"><h3>Your winning openers</h3><p>The first 4 seconds of your reels that beat your usual.</p></div>')
-    if wins:
-        rows = []
-        for r, hk in wins[:10]:
-            img = imgs.get(safe_name(own, r['code']))
-            tid = pg.detail(reel_detail(own, r, img, 'your'))
-            rows.append('<article class="opener" data-open="%s" tabindex="0" role="button"><div class="o-thumb">%s</div><div class="o-body">'
-                        '<p class="hook">“%s”</p><p class="meta"><b class="xnum">%s your usual</b><span>%s views</span><span>%s</span></p></div>'
-                        '<a class="ext" href="%s" target="_blank" rel="noopener" aria-label="Open the post">↗</a></article>' % (
-                            tid, thumb_html(img, own, 'Your reel'), esc(first_line(hk, 200)), esc(fmt_x(r['x'])),
-                            esc(fmt_n(r['views'])), esc(fmt_date(r.get('posted'))), esc(r.get('url', '#'))))
-        out.append('<div class="openers">%s</div>' % ''.join(rows))
-    else:
-        out.append(empty('No winning openers yet', 'Once a few of your reels beat your usual and get transcribed, their first lines land here.', 'refresh my research'))
-    secs = md_sections(voice)
-    lean = bullets(secs.get('hook types they lean on', []))
-    if lean:
-        items = []
-        for b in lean:
-            b = re.sub(r'\bfor (him|her|them)\b', 'for you', re.sub(r'\s*\[(inferred|confirmed|likely)[^\]]*\]\s*$', '', b))
-            left, _, quote = b.partition(' | ')
-            name, stat = left, ''
-            m = re.match(r'^(.*?\S)(?::\s+)([^:]*)$', left)
-            if m and len(m.group(1)) < 140:
-                name, stat = m.group(1), m.group(2)
-            weak = name.lower().startswith(('weak', 'avoid', 'flop'))
-            items.append('<li class="%s"><p class="ln">%s</p>%s%s</li>' % (
-                'weak' if weak else '', md_inline(name), ('<p class="ls">%s</p>' % md_inline(stat)) if stat else '',
-                ('<p class="lq">%s</p>' % md_inline(quote)) if quote else ''))
-        out.append('<div class="sub-head"><h3>The hook types that work for you</h3><p>From your voice profile.</p></div><ul class="lean">%s</ul>' % ''.join(items))
-    out.append('<div class="sub-head"><h3>Hook bank</h3><p>Every saved hook, best first. The words in color are the parts you swap for your own.</p></div>')
-    if not bank:
-        out.append(empty('Your hook bank is empty', 'Claude fills it from the reels that beat their creator\'s usual, yours and your competitors\'.', 'refresh my research'))
-        return ''.join(out)
+                wins.append({'k': rv.key(own, r, 'your'), 'hook': first_line(hk, 200)})
+    lean = []
+    for b in bullets(md_sections(voice).get('hook types they lean on', [])):
+        b = re.sub(r'\bfor (him|her|them)\b', 'for you', re.sub(r'\s*\[(inferred|confirmed|likely)[^\]]*\]\s*$', '', b))
+        left, _, quote = b.partition(' | ')
+        name, stat = left, ''
+        m = re.match(r'^(.*?\S)(?::\s+)([^:]*)$', left)
+        if m and len(m.group(1)) < 140:
+            name, stat = m.group(1), m.group(2)
+        lean.append({'name': name, 'stat': stat, 'quote': quote, 'weak': 1 if name.lower().startswith(('weak', 'avoid', 'flop')) else 0})
     mechs = {}
     for e in bank:
         for m in e['mechs']:
             mechs[m] = mechs.get(m, 0) + 1
-    chips = '<button class="chip on" data-mech="">All <span>%d</span></button>' % len(bank) + ''.join(
-        '<button class="chip" data-mech="%s">%s <span>%d</span></button>' % (esc(m.lower()), esc(m), n)
-        for m, n in sorted(mechs.items(), key=lambda kv: (-kv[1], kv[0])))
-    out.append('<div class="bank-tools"><label class="search"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="9" cy="9" r="6"/><path d="m14 14 4 4"/></svg>'
-               '<input type="search" id="hook-q" placeholder="Search hooks, words, creators" aria-label="Search the hook bank"></label>'
-               '<div class="chips" role="group" aria-label="Filter by hook type">%s</div></div>' % chips)
     cards = []
     for e in bank:
-        tpl = re.sub(r'\[([^\]]+)\]', r'<span class="slot">\1</span>', esc(e['template']))
         who = 'You' if e['self'] else e['creator']
-        whose = 'your' if e['self'] else 'their'
         surface = {'spoken': 'the spoken line', 'on-screen': 'the on-screen text', 'frame one': 'the first frame',
                    'caption': 'the caption'}.get(e['surface'].lower(), e['surface'])
-        text = ' '.join([e['template'], e['original'], e['why'], who, ' '.join(e['mechs'])]).lower()
-        cards.append(
-            '<article class="hookcard" data-mechs="%s" data-text="%s">'
-            '<div class="h-top">%s%s</div>'
-            '<p class="tpl">%s</p>'
-            '<p class="orig"><span>Original</span>%s</p>%s'
-            '<div class="h-foot"><span class="who%s">%s</span>%s<a class="ext" href="%s" target="_blank" rel="noopener">See it <span aria-hidden="true">↗</span></a></div>'
-            '</article>' % (
-                esc('|'.join(m.lower() for m in e['mechs'])), esc(text),
-                ''.join('<span class="tag">%s</span>' % esc(m) for m in e['mechs']),
-                ('<span class="tag ghost">Carried by %s</span>' % esc(surface)) if surface else '',
-                tpl, esc(e['original']), ('<p class="why"><span>Why it works</span>%s</p>' % esc(e['why'])) if e['why'] else '',
-                ' self' if e['self'] else '', esc(who),
-                ('<span class="hx"><b>%s</b> %s usual%s</span>' % (esc(fmt_x(e['x'])), whose, (', %s views' % esc(e['views'])) if e['views'] else '')) if e['x'] else '',
-                esc(e['url'])))
-    out.append('<div class="bank" id="bank">%s</div><div class="empty bank-empty" hidden><p class="e-title">No hook matches that</p><p>Try a shorter word or another hook type.</p></div>' % ''.join(cards))
-    return ''.join(out)
+        cards.append({
+            'tpl': e['template'], 'mechs': e['mechs'], 'ml': '|'.join(m.lower() for m in e['mechs']), 'surface': surface,
+            'orig': e['original'], 'why': e['why'], 'who': who, 'self': 1 if e['self'] else 0,
+            'x': fmt_x(e['x']) if e['x'] else '', 'whose': 'your' if e['self'] else 'their', 'views': e['views'], 'url': e['url'],
+            'text': ' '.join([e['template'], e['original'], e['why'], who, ' '.join(e['mechs'])]).lower(),
+        })
+    return {'wins': wins[:10], 'lean': lean, 'bank': cards,
+            'chips': [[m.lower(), m, n] for m, n in sorted(mechs.items(), key=lambda kv: (-kv[1], kv[0]))]}
 
 
-def section_competitors(pg, comps, libs, imgs):
-    out = ['<div class="sec-head"><div><h2>Competitors</h2><p>The reels that beat their own usual by 2x or more. Their usual, not their follower count, is the bar.</p></div></div>']
-    if not comps:
-        out.append(empty('No competitors yet', 'Name 3 to 10 accounts whose reels pop in your space and Claude studies them.', 'add a competitor'))
-        return ''.join(out)
+def data_comps(comps, libs, rv):
+    out = []
     for h in comps:
         d = libs.get(h)
-        head = '<div class="avatar">%s</div><div class="ch-txt"><h3>@%s</h3>%s</div><a class="ghost-btn" href="https://www.instagram.com/%s/" target="_blank" rel="noopener">Profile <span aria-hidden="true">↗</span></a>'
         if not d:
-            out.append('<section class="comp"><header class="comp-head">%s</header>%s</section>' % (
-                head % (esc(h[:1].upper()), esc(h), '<p>Not studied yet</p>', esc(h)),
-                empty('Not studied yet', 'This account has not been collected. If it stays empty after a refresh, it is private or the handle is off.', 'refresh my research')))
+            out.append({'h': h, 'studied': 0})
             continue
         rs = d['reels']
         settled = [r for r in rs if counts(r)]
         outl = sorted([r for r in settled if r['x'] >= 2], key=lambda r: r['x'], reverse=True)
         climbing = sorted([r for r in rs if r.get('fresh') and r['x'] >= 2], key=lambda r: r['x'], reverse=True)[:3]
         best = max(settled, key=lambda r: r['x']) if settled else None
-        sub = '<p>Usual reel: <b>%s views</b><span>%d reels studied</span>%s</p>' % (
-            esc(fmt_n(d.get('median_views'))), len(rs), ('<span>Best: %s</span>' % esc(fmt_x(best['x']))) if best else '')
-        cards = [reel_card(pg, h, r, imgs.get(safe_name(h, r['code'])), 'their', rank=i, hide=i > 6) for i, r in enumerate(outl, 1)]
-        cards += [reel_card(pg, h, r, imgs.get(safe_name(h, r['code'])), 'their', label=off_label(r)) for r in climbing]
-        body = ('<div class="grid reels">%s</div>' % ''.join(cards)) if cards else empty(
-            'No breakout reels right now', 'None of their settled reels beat their usual by 2x. Their best so far: %s.' % (fmt_x(best['x']) if best else 'none'))
-        more = ('<button class="more" data-more>Show all %d</button>' % len(outl)) if len(outl) > 6 else ''
-        out.append('<section class="comp"><header class="comp-head">%s</header>%s%s</section>' % (
-            head % (esc(h[:1].upper()), esc(h), sub, esc(h)), body, more))
-    return ''.join(out)
+        cards = [card_item(rv.key(h, r, 'their'), rank=i, hide=i > 6) for i, r in enumerate(outl, 1)]
+        cards += [card_item(rv.key(h, r, 'their'), label=off_label(r)) for r in climbing]
+        out.append({'h': h, 'studied': 1, 'med': fmt_n(d.get('median_views')), 'n': len(rs),
+                    'best': fmt_x(best['x']) if best else '', 'best_any': fmt_x(best['x']) if best else 'none',
+                    'cards': cards, 'nout': len(outl)})
+    return out
 
 
-def section_topics(voice, reddit, rdate, xs, xdate):
-    out = ['<div class="sec-head"><div><h2>Topics</h2><p>What your audience is talking about right now, and the pillars your content stands on.</p></div></div>']
-    pil = bullets(md_sections(voice).get('pillars', []))
-    out.append('<div class="sub-head"><h3>Your pillars</h3><p>The few big themes every reel should fit under.</p></div>')
-    if pil:
-        out.append('<div class="pillars">%s</div>' % ''.join(
-            '<div class="pillar"><span class="pn">%02d</span><p class="pt">%s</p>%s</div>' % (
-                i, md_inline(t), ('<p class="pd">%s</p>' % md_inline(rest)) if rest else '')
-            for i, (t, rest) in enumerate((split_title(b) for b in pil), 1)))
-    else:
-        out.append(empty('No pillars saved yet', 'Claude names your pillars from your best reels during a refresh.', 'refresh my research'))
-    cols = []
-    # Reddit
+def data_topics(voice, reddit, rdate, xs, xdate):
+    out = {'pillars': [list(split_title(b)) for b in bullets(md_sections(voice).get('pillars', []))], 'reddit': None, 'x': None}
     if reddit:
         by = {}
         for it in sorted(reddit, key=lambda x: x.get('rank') or 99):
             by.setdefault(it.get('where') or 'Reddit', []).append(it)
-        blocks = []
+        groups = []
         for where, items in by.items():
-            rows = []
-            for i, it in enumerate(items):
-                coms = [c for c in (it.get('top_comments') or []) if good_comment(c)][:3]
-                text = first_line(it.get('text'), 260)
-                rows.append(
-                    '<article class="thread%s"><span class="t-rank">#%s</span><div class="t-body">'
-                    '<a class="t-title" href="%s" target="_blank" rel="noopener">%s</a>%s%s'
-                    '<p class="t-meta">Top of the %s%s</p></div></article>' % (
-                        ' is-more' if i >= 6 else '', esc(it.get('rank') or i + 1), esc(it.get('url', '#')), esc(it.get('title') or 'Untitled'),
-                        ('<p class="t-text">%s</p>' % esc(text)) if text else '',
-                        ('<div class="t-coms"><p class="k">What people said</p>%s</div>' % ''.join('<blockquote>%s</blockquote>' % esc(first_line(c, 220)) for c in coms)) if coms else '',
-                        esc(it.get('period') or 'week'), (' · %s' % esc(fmt_date(it.get('posted')))) if it.get('posted') else ''))
-            more = ('<button class="more" data-more>Show all %d</button>' % len(items)) if len(items) > 6 else ''
-            blocks.append('<div class="rgroup"><h4>%s <span>%d threads</span></h4>%s%s</div>' % (esc(where), len(items), ''.join(rows), more))
-        cols.append('<div class="tcol"><div class="sub-head"><h3>Reddit</h3><p>The top threads in your subreddits%s.</p></div>%s</div>' % (
-            (', collected %s' % esc(fmt_date(rdate))) if rdate else '', ''.join(blocks)))
-    else:
-        cols.append('<div class="tcol"><div class="sub-head"><h3>Reddit</h3></div>%s</div>' % empty(
-            'No Reddit threads yet', 'Tell Claude the subreddits your audience reads and it pulls the top threads and comments.', 'add subreddits to my research'))
+            groups.append({'where': where, 'items': [{
+                'rank': str(it.get('rank') or i + 1), 'url': it.get('url', '#'), 'title': it.get('title') or 'Untitled',
+                'text': first_line(it.get('text'), 260),
+                'coms': [first_line(c, 220) for c in [c for c in (it.get('top_comments') or []) if good_comment(c)][:3]],
+                'period': it.get('period') or 'week', 'posted': fmt_date(it.get('posted')) if it.get('posted') else None,
+            } for i, it in enumerate(items)]})
+        out['reddit'] = {'date': fmt_date(rdate) if rdate else '', 'groups': groups}
     if xs:
-        posts = sorted(xs, key=lambda x: x.get('likes') or 0, reverse=True)
-        rows = ''.join(
-            '<article class="xpost%s"><p class="x-top"><b>%s</b><span>%s likes</span>%s</p><p class="x-text">%s</p>'
-            '<a class="ext" href="%s" target="_blank" rel="noopener">Open on X <span aria-hidden="true">↗</span></a></article>' % (
-                ' is-more' if i >= 8 else '', esc(p.get('where') or ''), esc(fmt_n(p.get('likes'))),
-                ('<span>%s</span>' % esc(fmt_date(p.get('posted')))) if p.get('posted') else '',
-                esc((p.get('text') or '').strip()).replace('\n', '<br>'), esc(p.get('url') or '#'))
-            for i, p in enumerate(posts))
-        more = ('<button class="more" data-more>Show all %d</button>' % len(posts)) if len(posts) > 8 else ''
-        cols.append('<div class="tcol"><div class="sub-head"><h3>X</h3><p>Popular posts from the accounts and searches you follow%s.</p></div><div class="xlist">%s</div>%s</div>' % (
-            (', collected %s' % esc(fmt_date(xdate))) if xdate else '', rows, more))
-    else:
-        cols.append('<div class="tcol"><div class="sub-head"><h3>X</h3></div>%s</div>' % empty(
-            'No X posts yet', 'Give Claude a few X accounts or search terms and it pulls what is popular there.', 'add X searches to my research'))
-    out.append('<div class="tcols">%s</div>' % ''.join(cols))
-    return ''.join(out)
+        out['x'] = {'date': fmt_date(xdate) if xdate else '', 'posts': [{
+            'where': p.get('where') or '', 'likes': fmt_n(p.get('likes')),
+            'posted': fmt_date(p.get('posted')) if p.get('posted') else None,
+            'text': (p.get('text') or '').strip(), 'url': p.get('url') or '#',
+        } for p in sorted(xs, key=lambda x: x.get('likes') or 0, reverse=True)]}
+    return out
 
 
-# ---------- page ----------
+# ---------- the shell (index.html: written once per brand) ----------
 
 CSS = r"""
 *,*::before,*::after{box-sizing:border-box}
@@ -1035,6 +961,9 @@ dialog::backdrop{background:rgba(0,0,0,.62);backdrop-filter:blur(6px);-webkit-ba
 .d-coms li{font-size:14px;padding:10px 14px;border-radius:12px;background:var(--surface2);overflow-wrap:anywhere}
 .foot{border-top:1px solid var(--line);padding:28px 0 40px;color:var(--muted);font-size:13px}
 .foot .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px 24px}
+.upd{position:fixed;left:50%;bottom:22px;z-index:30;display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border-radius:999px;background:var(--surface2);border:1px solid var(--line2);color:var(--text);font-size:13px;font-weight:500;box-shadow:0 18px 40px -18px var(--shade);opacity:0;transform:translate(-50%,10px);pointer-events:none;transition:opacity .3s,transform .3s}
+.upd.on{opacity:1;transform:translate(-50%,0)}
+.upd i{width:7px;height:7px;border-radius:50%;background:var(--accent2);box-shadow:0 0 0 3px var(--soft)}
 @media (max-width:900px){
   .tcols{grid-template-columns:minmax(0,1fr)}
   .openers{grid-template-columns:minmax(0,1fr)}
@@ -1084,7 +1013,222 @@ dialog::backdrop{background:rgba(0,0,0,.62);backdrop-filter:blur(6px);-webkit-ba
 
 JS = r"""
 (function(){
-  var tabs=[].slice.call(document.querySelectorAll('[data-tab]')), panels=[].slice.call(document.querySelectorAll('[data-panel]'));
+  var SHELL=window.SS_SHELL||{}, R={}, DT=[], cur=null;
+  var st={filter:'all',mech:'',q:'',more:{}};
+  function $(id){return document.getElementById(id)}
+  function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#x27;')}
+  function md(s){return esc(s).replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')}
+  function each(a,f){return (a||[]).map(f).join('')}
+  function say(cmd){return '<p class="say"><span>Say</span><b>'+esc(cmd)+'</b></p>'}
+  function empty(t,b,cmd){return '<div class="empty"><p class="e-title">'+esc(t)+'</p><p>'+esc(b)+'</p>'+(cmd?say(cmd):'')+'</div>'}
+  function thumb(src,h,alt){
+    if(src) return '<img src="'+esc(src)+'" alt="'+esc(alt)+'" loading="lazy" decoding="async">';
+    return '<div class="noimg"><span>'+esc((h||'?').charAt(0).toUpperCase())+'</span><small>No preview</small></div>';
+  }
+  function ext(href,label,cls){return '<a class="'+(cls||'ext')+'" href="'+esc(href)+'" target="_blank" rel="noopener">'+label+' <span aria-hidden="true">\u2197</span></a>'}
+  function detail(k,note){DT.push([k,note||'']);return 'd'+DT.length}
+
+  /* ---- the dialog: the full view of a reel ---- */
+  function reelDetail(v,note){
+    var tr='<h4>What was said</h4>';
+    if(v.segs.length){
+      tr+='<p class="hint">The highlighted lines are the first 4 seconds: the spoken hook.</p><div class="transcript">'+each(v.segs,function(s){
+        return '<p class="tline'+(s[2]?' is-hook':'')+'"><span class="ts">'+esc(s[0])+'</span><span>'+esc(s[1])+'</span></p>'})+'</div>';
+    }else if(v.text){
+      tr+='<div class="transcript"><p>'+esc(v.text)+'</p></div>';
+    }else{
+      tr+=v.whose==='your'?empty('Not transcribed yet','This one gets transcribed in a later refresh once it has settled.','refresh my research')
+        :empty('Not transcribed yet','Want the exact words? Ask for this reel by its link.','transcribe this reel '+(v.nourl?'':v.url));
+    }
+    var stats=[[v.views,'views'],[v.likes,'likes'],[v.comments,'comments']];
+    if(v.hasdur) stats.push([v.dur,'long']);
+    return '<div class="d-grid"><div class="d-media">'+thumb(v.img,v.h,'First frame of the reel')+'</div><div class="d-info">'+
+      '<p class="d-eyebrow">@'+esc(v.h)+' \u00b7 posted '+esc(v.posted_full)+'</p>'+
+      '<p class="d-x"><b>'+esc(v.x)+'</b> '+v.whose+' usual</p>'+(note?'<p class="d-note">'+esc(note)+'</p>':'')+
+      '<div class="d-stats">'+each(stats,function(s){return '<span><b>'+esc(s[0])+'</b>'+esc(s[1])+'</span>'})+'</div>'+
+      '<a class="btn" href="'+esc(v.url)+'" target="_blank" rel="noopener">Open the post <span aria-hidden="true">\u2197</span></a>'+tr+
+      (v.cap?'<h4>Caption</h4><p class="d-cap">'+esc(v.cap).replace(/\n/g,'<br>')+'</p>':'')+
+      (v.coms.length?'<h4>What people commented</h4><ul class="d-coms">'+each(v.coms,function(c){return '<li>'+esc(c)+'</li>'})+'</ul>':'')+
+      '</div></div>';
+  }
+
+  /* ---- a reel card ---- */
+  function card(it){
+    var v=R[it.k], lab=it.label, tid=detail(it.k,lab?lab[1]:''), flags='';
+    if(v.collab) flags+='<span class="flag">Collab or paid: weigh lightly</span>';
+    if(lab) flags+='<span class="flag grey">'+esc(lab[0])+'</span>';
+    var main=v.hook?'<p class="k">Spoken hook</p><p class="hook">\u201c'+esc(v.hook)+'\u201d</p>'
+      :'<p class="k">Caption</p><p class="hook">'+esc(v.cap1||'No caption')+'</p>';
+    var meta=[v.views+' views',v.posted,v.dur].filter(function(m){return m});
+    return '<article class="card reel'+(lab?' is-off':'')+(it.hide?' is-more':'')+'" data-group="'+esc(it.group||'')+'" data-open="'+tid+'" tabindex="0" role="button" aria-label="Open details for this reel">'+
+      '<div class="thumb">'+thumb(v.img,v.h,'Reel by @'+v.h)+'<span class="badge '+(lab?'off':v.tone)+'">'+esc(v.x)+' <em>'+v.whose+' usual</em></span>'+
+      (it.rank?'<span class="rank">'+it.rank+'</span>':'')+'</div>'+
+      '<div class="c-body">'+(flags?'<div class="flags">'+flags+'</div>':'')+main+((v.hook&&v.cap1)?'<p class="cap">'+esc(v.cap1)+'</p>':'')+
+      '<div class="meta">'+each(meta,function(m){return '<span>'+esc(m)+'</span>'})+'</div>'+
+      '<div class="c-foot"><span class="more-link">'+(v.hook?'Read transcript':'Details')+'</span>'+
+      '<a href="'+esc(v.url)+'" target="_blank" rel="noopener" class="ext">Open post <span aria-hidden="true">\u2197</span></a></div>'+
+      '</div></article>';
+  }
+  function more(key,n){return '<button class="more" data-more="'+esc(key)+'">Show all '+n+'</button>'}
+
+  /* ---- My reels ---- */
+  function pulse(p){
+    if(!p) return '';
+    return '<figure class="pulse"><figcaption><span>Every settled reel, oldest to newest</span>'+
+      '<span class="pl"><span><i class="sw win"></i>above your usual</span><span><i class="sw weak"></i>below</span><span><i class="sw line"></i>your usual, '+esc(p.med)+' views</span></span></figcaption>'+
+      '<div class="pchart" style="--up:'+p.up+';--dn:'+p.dn+'"><div class="mid-line"></div>'+each(p.bars,function(b){
+        return '<a class="pb '+b[0]+'" href="'+esc(b[1])+'" target="_blank" rel="noopener" title="'+esc(b[2])+'"><i style="--h:'+b[3]+'%" class="'+b[4]+'"></i></a>'})+'</div>'+
+      '<p class="pcap">Tallest bar: '+esc(p.bx)+' your usual, '+esc(p.bd)+'.</p></figure>';
+  }
+  function secMy(d){
+    if(d.state==='noaccount') return empty('No account set up yet','Tell Claude your Instagram handle and it studies your reels for you.','set up Script Studio');
+    if(d.state!=='ok') return empty('Your reels are not studied yet','Claude collects your public reels, ranks them against your own usual and transcribes the best and the weakest.','refresh my research');
+    var out='<div class="sec-head"><div><h2>My reels</h2><p>Ranked by how far each one beat your usual. Tap a reel to read exactly what you said.</p></div>'+
+      '<div class="seg" role="group" aria-label="Filter your reels"><button class="on" data-filter="all">All <span>'+d.n[0]+'</span></button>'+
+      '<button data-filter="win">Winners, 1.2x+ <span>'+d.n[1]+'</span></button><button data-filter="weak">Weakest, under 0.7x <span>'+d.n[2]+'</span></button></div></div>';
+    out+=pulse(d.pulse);
+    if(d.ranked.length) out+='<div class="grid reels" id="my-grid">'+each(d.ranked,card)+'</div>'+
+      '<div class="empty filter-empty" hidden><p class="e-title">Nothing in this group yet</p><p>Try another filter.</p></div>';
+    else out+=empty('No settled reels yet','Reels need about 3 days before their views settle. Check back after your next refresh.','refresh my research');
+    if(d.off.length) out+='<div class="sub-head"><h3>Not counted yet</h3><p>Too new, a repeat, or suspiciously low. They never count toward your usual or the ranking.</p></div>'+
+      '<div class="grid reels off-grid">'+each(d.off,card)+'</div>'+(d.off.length>8?more('off',d.off.length):'');
+    return out;
+  }
+
+  /* ---- My hook library ---- */
+  function secHooks(d){
+    var out='<div class="sec-head"><div><h2>My hook library</h2><p>Opening lines that already won, as templates you can reuse. Your own first, then the best from around you.</p></div></div>'+
+      '<div class="sub-head"><h3>Your winning openers</h3><p>The first 4 seconds of your reels that beat your usual.</p></div>';
+    if(d.wins.length) out+='<div class="openers">'+each(d.wins,function(w){
+      var v=R[w.k];
+      return '<article class="opener" data-open="'+detail(w.k,'')+'" tabindex="0" role="button"><div class="o-thumb">'+thumb(v.img,v.h,'Your reel')+'</div><div class="o-body">'+
+        '<p class="hook">\u201c'+esc(w.hook)+'\u201d</p><p class="meta"><b class="xnum">'+esc(v.x)+' your usual</b><span>'+esc(v.views)+' views</span><span>'+esc(v.posted)+'</span></p></div>'+
+        '<a class="ext" href="'+esc(v.url)+'" target="_blank" rel="noopener" aria-label="Open the post">\u2197</a></article>'})+'</div>';
+    else out+=empty('No winning openers yet','Once a few of your reels beat your usual and get transcribed, their first lines land here.','refresh my research');
+    if(d.lean.length) out+='<div class="sub-head"><h3>The hook types that work for you</h3><p>From your voice profile.</p></div><ul class="lean">'+each(d.lean,function(l){
+      return '<li class="'+(l.weak?'weak':'')+'"><p class="ln">'+md(l.name)+'</p>'+(l.stat?'<p class="ls">'+md(l.stat)+'</p>':'')+(l.quote?'<p class="lq">'+md(l.quote)+'</p>':'')+'</li>'})+'</ul>';
+    out+='<div class="sub-head"><h3>Hook bank</h3><p>Every saved hook, best first. The words in color are the parts you swap for your own.</p></div>';
+    if(!d.bank.length) return out+empty('Your hook bank is empty','Claude fills it from the reels that beat their creator\'s usual, yours and your competitors\'.','refresh my research');
+    out+='<div class="bank-tools"><label class="search"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="9" cy="9" r="6"/><path d="m14 14 4 4"/></svg>'+
+      '<input type="search" id="hook-q" placeholder="Search hooks, words, creators" aria-label="Search the hook bank"></label>'+
+      '<div class="chips" role="group" aria-label="Filter by hook type"><button class="chip on" data-mech="">All <span>'+d.bank.length+'</span></button>'+
+      each(d.chips,function(c){return '<button class="chip" data-mech="'+esc(c[0])+'">'+esc(c[1])+' <span>'+c[2]+'</span></button>'})+'</div></div>';
+    out+='<div class="bank" id="bank">'+each(d.bank,function(e){
+      return '<article class="hookcard" data-mechs="'+esc(e.ml)+'" data-text="'+esc(e.text)+'">'+
+        '<div class="h-top">'+each(e.mechs,function(m){return '<span class="tag">'+esc(m)+'</span>'})+(e.surface?'<span class="tag ghost">Carried by '+esc(e.surface)+'</span>':'')+'</div>'+
+        '<p class="tpl">'+esc(e.tpl).replace(/\[([^\]]+)\]/g,'<span class="slot">$1</span>')+'</p>'+
+        '<p class="orig"><span>Original</span>'+esc(e.orig)+'</p>'+(e.why?'<p class="why"><span>Why it works</span>'+esc(e.why)+'</p>':'')+
+        '<div class="h-foot"><span class="who'+(e.self?' self':'')+'">'+esc(e.who)+'</span>'+
+        (e.x?'<span class="hx"><b>'+esc(e.x)+'</b> '+e.whose+' usual'+(e.views?', '+esc(e.views)+' views':'')+'</span>':'')+
+        ext(e.url,'See it')+'</div></article>'})+'</div>'+
+      '<div class="empty bank-empty" hidden><p class="e-title">No hook matches that</p><p>Try a shorter word or another hook type.</p></div>';
+    return out;
+  }
+
+  /* ---- Competitors ---- */
+  function secComp(list){
+    var out='<div class="sec-head"><div><h2>Competitors</h2><p>The reels that beat their own usual by 2x or more. Their usual, not their follower count, is the bar.</p></div></div>';
+    if(!list.length) return out+empty('No competitors yet','Name 3 to 10 accounts whose reels pop in your space and Claude studies them.','add a competitor');
+    list.forEach(function(c){
+      var head=function(sub){return '<header class="comp-head"><div class="avatar">'+esc(c.h.charAt(0).toUpperCase())+'</div><div class="ch-txt"><h3>@'+esc(c.h)+'</h3>'+sub+'</div>'+
+        ext('https://www.instagram.com/'+c.h+'/','Profile','ghost-btn')+'</header>'};
+      if(!c.studied){
+        out+='<section class="comp">'+head('<p>Not studied yet</p>')+empty('Not studied yet','This account has not been collected. If it stays empty after a refresh, it is private or the handle is off.','refresh my research')+'</section>';
+        return;
+      }
+      var sub='<p>Usual reel: <b>'+esc(c.med)+' views</b><span>'+c.n+' reels studied</span>'+(c.best?'<span>Best: '+esc(c.best)+'</span>':'')+'</p>';
+      out+='<section class="comp">'+head(sub)+(c.cards.length?'<div class="grid reels">'+each(c.cards,card)+'</div>'
+        :empty('No breakout reels right now','None of their settled reels beat their usual by 2x. Their best so far: '+c.best_any+'.'))+
+        (c.nout>6?more('comp:'+c.h,c.nout):'')+'</section>';
+    });
+    return out;
+  }
+
+  /* ---- Topics ---- */
+  function secTopics(d){
+    var out='<div class="sec-head"><div><h2>Topics</h2><p>What your audience is talking about right now, and the pillars your content stands on.</p></div></div>'+
+      '<div class="sub-head"><h3>Your pillars</h3><p>The few big themes every reel should fit under.</p></div>';
+    out+=d.pillars.length?'<div class="pillars">'+each(d.pillars,function(p,i){
+      return '<div class="pillar"><span class="pn">'+(i<9?'0':'')+(i+1)+'</span><p class="pt">'+md(p[0])+'</p>'+(p[1]?'<p class="pd">'+md(p[1])+'</p>':'')+'</div>'})+'</div>'
+      :empty('No pillars saved yet','Claude names your pillars from your best reels during a refresh.','refresh my research');
+    var cols='';
+    if(d.reddit){
+      cols+='<div class="tcol"><div class="sub-head"><h3>Reddit</h3><p>The top threads in your subreddits'+(d.reddit.date?', collected '+esc(d.reddit.date):'')+'.</p></div>'+each(d.reddit.groups,function(g){
+        return '<div class="rgroup"><h4>'+esc(g.where)+' <span>'+g.items.length+' threads</span></h4>'+each(g.items,function(it,i){
+          return '<article class="thread'+(i>=6?' is-more':'')+'"><span class="t-rank">#'+esc(it.rank)+'</span><div class="t-body">'+
+            '<a class="t-title" href="'+esc(it.url)+'" target="_blank" rel="noopener">'+esc(it.title)+'</a>'+(it.text?'<p class="t-text">'+esc(it.text)+'</p>':'')+
+            (it.coms.length?'<div class="t-coms"><p class="k">What people said</p>'+each(it.coms,function(c){return '<blockquote>'+esc(c)+'</blockquote>'})+'</div>':'')+
+            '<p class="t-meta">Top of the '+esc(it.period)+(it.posted!=null?' \u00b7 '+esc(it.posted):'')+'</p></div></article>'})+
+          (g.items.length>6?more('r:'+g.where,g.items.length):'')+'</div>'})+'</div>';
+    }else cols+='<div class="tcol"><div class="sub-head"><h3>Reddit</h3></div>'+empty('No Reddit threads yet','Tell Claude the subreddits your audience reads and it pulls the top threads and comments.','add subreddits to my research')+'</div>';
+    if(d.x){
+      var ps=d.x.posts;
+      cols+='<div class="tcol"><div class="sub-head"><h3>X</h3><p>Popular posts from the accounts and searches you follow'+(d.x.date?', collected '+esc(d.x.date):'')+'.</p></div><div class="xlist">'+each(ps,function(p,i){
+        return '<article class="xpost'+(i>=8?' is-more':'')+'"><p class="x-top"><b>'+esc(p.where)+'</b><span>'+esc(p.likes)+' likes</span>'+(p.posted!=null?'<span>'+esc(p.posted)+'</span>':'')+'</p>'+
+          '<p class="x-text">'+esc(p.text).replace(/\n/g,'<br>')+'</p>'+ext(p.url,'Open on X')+'</article>'})+'</div>'+(ps.length>8?more('x',ps.length):'')+'</div>';
+    }else cols+='<div class="tcol"><div class="sub-head"><h3>X</h3></div>'+empty('No X posts yet','Give Claude a few X accounts or search terms and it pulls what is popular there.','add X searches to my research')+'</div>';
+    return out+'<div class="tcols">'+cols+'</div>';
+  }
+
+  /* ---- top of the page ---- */
+  function hero(d){
+    var sub=[];
+    if(d.own) sub.push('<b>@'+esc(d.own)+'</b>');
+    if(d.niche) sub.push('<span>'+esc(d.niche)+'</span>');
+    return '<p class="eyebrow"><span class="dot"></span>'+esc(d.eyebrow)+'</p><h1 class="name">'+esc(d.name)+'</h1><p class="subline">'+sub.join(' ')+'</p>'+
+      '<div class="stats">'+each(d.tiles,function(t){
+        return '<div class="stat'+(t.hl?' hl':'')+'"><p class="num">'+esc(t.num)+'</p><p class="lbl">'+esc(t.lbl)+'</p><p class="sub">'+
+          (t.href?'<a href="'+esc(t.href)+'" target="_blank" rel="noopener">'+esc(t.sub)+'</a>':esc(t.sub))+'</p></div>'})+'</div>';
+  }
+
+  /* ---- render, keeping what the viewer had open ---- */
+  var panels=[].slice.call(document.querySelectorAll('[data-panel]')), tabs=[].slice.call(document.querySelectorAll('[data-tab]'));
+  function panel(id){return document.querySelector('[data-panel="'+id+'"]')}
+  function expand(b){
+    b.parentElement.querySelectorAll('.is-more').forEach(function(e){e.classList.remove('is-hidden')});
+    b.remove();
+  }
+  function applyFilter(){
+    document.querySelectorAll('.seg [data-filter]').forEach(function(x){x.classList.toggle('on',x.dataset.filter===st.filter)});
+    var grid=$('my-grid'), n=0; if(!grid) return;
+    grid.querySelectorAll('.card').forEach(function(c){var ok=st.filter==='all'||c.dataset.group===st.filter;c.hidden=!ok;if(ok)n++});
+    var e=grid.parentElement.querySelector('.filter-empty'); if(e) e.hidden=n>0;
+  }
+  function filt(){
+    var s=st.q.trim().toLowerCase(), n=0;
+    document.querySelectorAll('.hookcard').forEach(function(c){
+      var ok=(!s||c.dataset.text.indexOf(s)>-1)&&(!st.mech||c.dataset.mechs.split('|').indexOf(st.mech)>-1);
+      c.hidden=!ok; if(ok) n++;
+    });
+    var e=document.querySelector('.bank-empty'); if(e) e.hidden=n>0;
+  }
+  function applyMech(){
+    var chips=[].slice.call(document.querySelectorAll('.chip'));
+    if(!chips.some(function(c){return c.dataset.mech===st.mech})) st.mech='';
+    chips.forEach(function(c){c.classList.toggle('on',c.dataset.mech===st.mech)});
+    filt();
+  }
+  function render(keep){
+    var D=window.SS_DATA; if(!D) return;
+    var y=window.scrollY, a=document.activeElement, qf=a&&a.id==='hook-q', sel=qf?[a.selectionStart,a.selectionEnd]:null;
+    R=D.reels||{}; DT=[];
+    document.title=D.hero.name+' \u00b7 Research';
+    $('ss-brand').innerHTML=(SHELL.logo?'<img src="'+esc(SHELL.logo)+'" alt="'+esc(D.hero.name)+'">':'<span class="mono">'+esc(D.hero.initial)+'</span>')+'<span class="prod">Script Studio</span>';
+    $('ss-hero').innerHTML=hero(D.hero);
+    panel('reels').innerHTML=secMy(D.my);
+    panel('hooks').innerHTML=secHooks(D.hooks);
+    panel('competitors').innerHTML=secComp(D.comps);
+    panel('topics').innerHTML=secTopics(D.topics);
+    $('ss-foot').innerHTML='<span>Built by Script Studio on '+esc(D.built)+'.</span><span>Fresh numbers after every research refresh. Say "refresh my research".</span>';
+    document.querySelectorAll('.is-more').forEach(function(e){e.classList.add('is-hidden')});
+    document.querySelectorAll('[data-more]').forEach(function(b){if(st.more[b.dataset.more]) expand(b)});
+    applyFilter();
+    var q=$('hook-q');
+    if(q){q.value=st.q; if(qf){q.focus(); try{q.setSelectionRange(sel[0],sel[1])}catch(e){}}}
+    applyMech();
+    if(keep) window.scrollTo({top:y,left:0,behavior:'instant'});
+  }
+
   function show(id,push){
     if(!panels.some(function(p){return p.dataset.panel===id})) id=panels[0]&&panels[0].dataset.panel;
     panels.forEach(function(p){p.hidden=p.dataset.panel!==id});
@@ -1092,47 +1236,28 @@ JS = r"""
     if(push&&history.replaceState) history.replaceState(null,'','#'+id);
   }
   tabs.forEach(function(t){t.addEventListener('click',function(){show(t.dataset.tab,true);var m=document.querySelector('main');if(window.scrollY>m.offsetTop)window.scrollTo({top:m.offsetTop-80})})});
-  show((location.hash||'').slice(1),false);
-  document.querySelectorAll('.is-more').forEach(function(e){e.classList.add('is-hidden')});
+
   document.addEventListener('click',function(ev){
-    var b=ev.target.closest('[data-more]'); if(!b) return;
-    b.parentElement.querySelectorAll('.is-more').forEach(function(e){e.classList.remove('is-hidden')});
-    b.remove();
+    var b=ev.target.closest('[data-more]');
+    if(b){st.more[b.dataset.more]=1; expand(b); return}
+    var f=ev.target.closest('.seg [data-filter]');
+    if(f){st.filter=f.dataset.filter; applyFilter(); return}
+    var c=ev.target.closest('.chip');
+    if(c){st.mech=c.dataset.mech; applyMech(); return}
   });
-  var grid=document.getElementById('my-grid');
-  document.querySelectorAll('.seg [data-filter]').forEach(function(btn){
-    btn.addEventListener('click',function(){
-      var f=btn.dataset.filter, n=0;
-      btn.parentElement.querySelectorAll('button').forEach(function(x){x.classList.toggle('on',x===btn)});
-      if(!grid) return;
-      grid.querySelectorAll('.card').forEach(function(c){var ok=f==='all'||c.dataset.group===f;c.hidden=!ok;if(ok)n++});
-      var e=grid.parentElement.querySelector('.filter-empty'); if(e) e.hidden=n>0;
-    });
-  });
-  var q=document.getElementById('hook-q'), mech='';
-  function filt(){
-    var s=(q&&q.value||'').trim().toLowerCase(), n=0;
-    document.querySelectorAll('.hookcard').forEach(function(c){
-      var ok=(!s||c.dataset.text.indexOf(s)>-1)&&(!mech||c.dataset.mechs.split('|').indexOf(mech)>-1);
-      c.hidden=!ok; if(ok) n++;
-    });
-    var e=document.querySelector('.bank-empty'); if(e) e.hidden=n>0;
-  }
-  if(q) q.addEventListener('input',filt);
-  document.querySelectorAll('.chip').forEach(function(c){c.addEventListener('click',function(){
-    mech=c.dataset.mech; document.querySelectorAll('.chip').forEach(function(x){x.classList.toggle('on',x===c)}); filt();
-  })});
-  var dlg=document.getElementById('dlg'), body=document.getElementById('dlg-body'), last=null;
+  document.addEventListener('input',function(ev){if(ev.target.id==='hook-q'){st.q=ev.target.value; filt()}});
+
+  var dlg=$('dlg'), body=$('dlg-body'), last=null;
   function open(id,from){
-    var t=document.getElementById(id); if(!t||!dlg) return;
-    body.innerHTML=''; body.appendChild(t.content.cloneNode(true)); last=from;
+    var e=DT[parseInt(String(id).slice(1),10)-1]; if(!e||!R[e[0]]||!dlg) return;
+    body.innerHTML=reelDetail(R[e[0]],e[1]); last=from;
     if(dlg.showModal){dlg.showModal()}else{dlg.setAttribute('open','')}
     var s=dlg.querySelector('.dlg-in'); if(s) s.scrollTop=0;
   }
   function close(){ if(dlg.close){dlg.close()}else{dlg.removeAttribute('open')} }
   if(dlg){
     dlg.addEventListener('click',function(e){if(e.target===dlg) close()});
-    dlg.addEventListener('close',function(){if(last) last.focus()});
+    dlg.addEventListener('close',function(){if(last&&document.contains(last)) last.focus()});
     dlg.querySelector('.x-close').addEventListener('click',close);
   }
   document.addEventListener('click',function(e){
@@ -1142,9 +1267,33 @@ JS = r"""
   document.addEventListener('keydown',function(e){
     if((e.key==='Enter'||e.key===' ')&&e.target.matches&&e.target.matches('[data-open]')){e.preventDefault();open(e.target.dataset.open,e.target)}
   });
+
+  /* ---- live refresh: reload data.js every 20 s (a script tag, so it works from file://) ---- */
+  var note=$('ss-upd'), noteT=null;
+  function updated(){
+    if(!note) return;
+    note.innerHTML='<i></i>Updated just now'; note.classList.add('on');
+    clearTimeout(noteT); noteT=setTimeout(function(){note.classList.remove('on')},6000);
+  }
+  function poll(){
+    var s=document.createElement('script');
+    s.src='data.js?t='+Date.now();
+    s.onload=function(){
+      s.remove();
+      var D=window.SS_DATA;
+      if(D&&D.generated!==cur){var first=cur===null; cur=D.generated; render(true); if(!first) updated()}
+    };
+    s.onerror=function(){s.remove()};
+    document.head.appendChild(s);
+  }
+  if(window.SS_DATA){cur=window.SS_DATA.generated; render(false)}
+  show((location.hash||'').slice(1),false);
+  setInterval(poll,20000);
 })();
 """
 
+
+# ---------- build ----------
 
 def research_day(libs, dates):
     days = []
@@ -1166,21 +1315,94 @@ def about_name():
     return m.group(1).strip() if m else ''
 
 
-def build():
+EMDASH = re.compile('\\s*\u2014\\s*')
+
+
+def no_dashes(o):
+    """Never an em dash anywhere on the page."""
+    if isinstance(o, str):
+        return EMDASH.sub(', ', o)
+    if isinstance(o, list):
+        return [no_dashes(v) for v in o]
+    if isinstance(o, dict):
+        return {k: no_dashes(v) for k, v in o.items()}
+    return o
+
+
+def write_atomic(path, text):
+    tmp = '%s.%d.tmp' % (path, os.getpid())
+    with open(tmp, 'w', encoding='utf-8', newline='\n') as fh:
+        fh.write(text)
+    os.replace(tmp, path)
+
+
+SHELL_VERSION = 2   # bump when shell_page() changes; CSS and JS changes are picked up on their own
+TABS = [('reels', 'My reels', 'My reels'), ('hooks', 'My hook library', 'Hooks'), ('competitors', 'Competitors', 'Competitors'), ('topics', 'Topics', 'Topics')]
+
+
+def shell_page(br, logo):
+    fonts = ''.join('<link rel="stylesheet" href="%s">' % esc(u) for u in br['links'])
+    pre = '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>' if fonts else ''
+    page = (
+        '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
+        '<title>Research</title><meta name="color-scheme" content="%s">%s%s<style>%s%s</style></head><body>'
+        '<header class="top"><div class="wrap top-in"><div class="brand" id="ss-brand"></div>'
+        '<nav class="tabs" role="tablist" aria-label="Sections">%s</nav></div></header>'
+        '<section class="hero wrap" id="ss-hero"></section>'
+        '<main class="wrap">%s</main>'
+        '<footer class="foot"><div class="wrap" id="ss-foot"></div></footer>'
+        '<dialog id="dlg" aria-label="Reel details"><div class="dlg-in"><button class="x-close" aria-label="Close">×</button><div id="dlg-body"></div></div></dialog>'
+        '<p class="upd" id="ss-upd" role="status" aria-live="polite"></p>'
+        '<script src="data.js"></script><script>window.SS_SHELL=%s;%s</script></body></html>') % (
+        'light' if br['light'] else 'dark', pre, fonts, css_vars(br), CSS,
+        ''.join('<button role="tab" data-tab="%s" aria-selected="false"><span class="l">%s</span><span class="s">%s</span></button>' % t for t in TABS),
+        ''.join('<section class="panel" data-panel="%s" aria-label="%s"></section>' % (t[0], t[1]) for t in TABS),
+        json.dumps({'logo': logo or ''}), JS)
+    return EMDASH.sub(', ', page)
+
+
+def shell_sig(logo):
+    """Changes when brand.json, the logo or the page template changes; then the shell is written again."""
+    try:
+        with open(os.path.join(ST, 'brand.json'), 'rb') as fh:
+            raw = fh.read()
+    except Exception:
+        raw = b''
+    h = hashlib.sha256()
+    for part in (raw, (logo or '').encode(), str(SHELL_VERSION).encode(), CSS.encode(), JS.encode(), repr(TABS).encode()):
+        h.update(part)
+        h.update(b'\0')
+    return h.hexdigest()[:20]
+
+
+def build_shell(force):
+    """Writes index.html only when it is missing, the brand changed, or force. True when it was written."""
     br = load_brand()
+    os.makedirs(OUT, exist_ok=True)
+    logo = copy_logo(br['logo'])
+    sig = shell_sig(logo)
+    path, mark = os.path.join(OUT, 'index.html'), os.path.join(OUT, '.shell')
+    old = (read_json(mark, {}) or {}).get('sig') if os.path.isfile(mark) else None
+    if not force and os.path.isfile(path) and old == sig:
+        return br, False
+    write_atomic(path, shell_page(br, logo))
+    write_atomic(mark, json.dumps({'sig': sig, 'built': dt.datetime.now().astimezone().isoformat(timespec='seconds')}) + '\n')
+    return br, True
+
+
+def build_data(br):
     prof = read_json(os.path.join(ST, 'profile.json'), {}) or {}
     own = (prof.get('handle') or '').lower()
     libs = load_libraries()
     od = libs.get(own)
     comps = [c for c in (prof.get('competitors') or []) if c and c != own]
-    extra = [h for h, d in libs.items() if h != own and h not in comps and len(d['reels']) >= 8]
-    comps += extra
+    comps += [h for h, d in libs.items() if h != own and h not in comps and len(d['reels']) >= 8]
     bank = parse_hook_bank()
     voice = read_text(os.path.join(ST, 'voice.md'))
     reddit, rdate = latest_radar('reddit')
     xs, xdate = latest_radar('x')
 
-    # every picture the page shows
+    # every picture the page shows: only the new ones are copied or downloaded
     jobs = []
     if od:
         jobs += [image_job(own, r) for r in od['reels']]
@@ -1189,73 +1411,45 @@ def build():
         if d:
             jobs += [image_job(h, r) for r in d['reels'] if (r.get('x') or 0) >= 2 and (counts(r) or r.get('fresh'))]
     imgs = prepare_images([j for j in jobs if j])
-    logo = copy_logo(br['logo'])
 
-    pg = Page()
-    p_my = section_my_reels(pg, own, od, imgs)
-    p_hooks = section_hooks(pg, own, od, imgs, bank, voice)
-    p_comp = section_competitors(pg, comps, libs, imgs)
-    p_topics = section_topics(voice, reddit, rdate, xs, xdate)
+    rv = Reels(imgs)
+    my = data_my(own, od, rv)
+    hooks = data_hooks(own, od, rv, bank, voice)
+    cps = data_comps(comps, libs, rv)
+    topics = data_topics(voice, reddit, rdate, xs, xdate)
 
     name = br['name'] or about_name() or prof.get('name') or ('@' + own if own else 'Your research')
     day = research_day(libs, [d for d in (rdate, xdate) if d])
     settled = sorted([r for r in (od or {}).get('reels', []) if counts(r) and not r.get('suspect')], key=lambda r: r['x'], reverse=True)
     best = settled[0] if settled else None
-    n_reels = sum(len(d['reels']) for d in libs.values())
-    n_tr = sum(1 for d in libs.values() for r in d['reels'] if r.get('transcribed'))
     n_comp = len([h for h in comps if h in libs])
+    tiles = [
+        {'num': fmt_n(od.get('median_views')), 'lbl': 'views on your usual reel', 'sub': 'The middle of your %d settled reels' % len(settled)} if od else
+        {'num': '0', 'lbl': 'views on your usual reel', 'sub': 'Shows up after your first research run'},
+        {'hl': 1, 'num': fmt_x(best['x']), 'lbl': 'your best reel vs your usual', 'href': best.get('url', '#'),
+         'sub': '%s views, posted %s' % (fmt_n(best['views']), fmt_date(best.get('posted')))} if best else
+        {'hl': 1, 'num': '0x', 'lbl': 'your best reel vs your usual', 'sub': 'Shows up after your first research run'},
+        {'num': str(sum(len(d['reels']) for d in libs.values())), 'lbl': 'reels studied',
+         'sub': 'Yours and %d competitor%s, %d transcribed' % (n_comp, '' if n_comp == 1 else 's',
+                                                              sum(1 for d in libs.values() for r in d['reels'] if r.get('transcribed')))},
+    ]
+    data = no_dashes({
+        'v': 1,
+        'generated': dt.datetime.now().astimezone().isoformat(timespec='milliseconds'),
+        'built': fmt_date(dt.date.today().isoformat(), True),
+        'hero': {'name': name, 'initial': (name.lstrip('@') or 'S')[:1].upper(), 'own': own, 'niche': prof.get('niche') or '',
+                 'eyebrow': ('Research updated %s · %s' % (fmt_date(day, True), ago(day))) if day else 'No research yet', 'tiles': tiles},
+        'my': my, 'hooks': hooks, 'comps': cps, 'topics': topics, 'reels': rv.map,
+    })
+    write_atomic(os.path.join(OUT, 'data.js'),
+                 'window.SS_DATA=' + json.dumps(data, ensure_ascii=False, separators=(',', ':')) + ';\n')
+    tidy_images([v['img'] for v in rv.map.values()])
 
-    tiles = []
-    if od:
-        tiles.append('<div class="stat"><p class="num">%s</p><p class="lbl">views on your usual reel</p><p class="sub">The middle of your %d settled reels</p></div>' % (
-            esc(fmt_n(od.get('median_views'))), len(settled)))
-    else:
-        tiles.append('<div class="stat"><p class="num">0</p><p class="lbl">views on your usual reel</p><p class="sub">Shows up after your first research run</p></div>')
-    if best:
-        tiles.append('<div class="stat hl"><p class="num">%s</p><p class="lbl">your best reel vs your usual</p><p class="sub"><a href="%s" target="_blank" rel="noopener">%s views, posted %s</a></p></div>' % (
-            esc(fmt_x(best['x'])), esc(best.get('url', '#')), esc(fmt_n(best['views'])), esc(fmt_date(best.get('posted')))))
-    else:
-        tiles.append('<div class="stat hl"><p class="num">0x</p><p class="lbl">your best reel vs your usual</p><p class="sub">Shows up after your first research run</p></div>')
-    tiles.append('<div class="stat"><p class="num">%s</p><p class="lbl">reels studied</p><p class="sub">Yours and %d competitor%s, %d transcribed</p></div>' % (
-        esc(n_reels), n_comp, '' if n_comp == 1 else 's', n_tr))
 
-    brand_html = ('<img src="%s" alt="%s">' % (esc(logo), esc(name))) if logo else '<span class="mono">%s</span>' % esc((name.lstrip('@') or 'S')[:1].upper())
-    tabs = [('reels', 'My reels', 'My reels'), ('hooks', 'My hook library', 'Hooks'), ('competitors', 'Competitors', 'Competitors'), ('topics', 'Topics', 'Topics')]
-    fonts = ''.join('<link rel="stylesheet" href="%s">' % esc(u) for u in br['links'])
-    pre = '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>' if fonts else ''
-    sub = []
-    if own:
-        sub.append('<b>@%s</b>' % esc(own))
-    if prof.get('niche'):
-        sub.append('<span>%s</span>' % esc(prof['niche']))
-    page = (
-        '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
-        '<title>%s · Research</title><meta name="color-scheme" content="%s">%s%s<style>%s%s</style></head><body>'
-        '<header class="top"><div class="wrap top-in"><div class="brand">%s<span class="prod">Script Studio</span></div>'
-        '<nav class="tabs" role="tablist" aria-label="Sections">%s</nav></div></header>'
-        '<section class="hero wrap"><p class="eyebrow"><span class="dot"></span>%s</p><h1 class="name">%s</h1>'
-        '<p class="subline">%s</p><div class="stats">%s</div></section>'
-        '<main class="wrap">'
-        '<section class="panel" data-panel="reels" aria-label="My reels">%s</section>'
-        '<section class="panel" data-panel="hooks" aria-label="My hook library">%s</section>'
-        '<section class="panel" data-panel="competitors" aria-label="Competitors">%s</section>'
-        '<section class="panel" data-panel="topics" aria-label="Topics">%s</section>'
-        '</main>'
-        '<footer class="foot"><div class="wrap"><span>Built by Script Studio on %s.</span><span>Fresh numbers after every research refresh. Say "refresh my research".</span></div></footer>'
-        '<dialog id="dlg" aria-label="Reel details"><div class="dlg-in"><button class="x-close" aria-label="Close">×</button><div id="dlg-body"></div></div></dialog>'
-        '%s<script>%s</script></body></html>') % (
-        esc(name), 'light' if br['light'] else 'dark', pre, fonts, css_vars(br), CSS, brand_html,
-        ''.join('<button role="tab" data-tab="%s" aria-selected="false"><span class="l">%s</span><span class="s">%s</span></button>' % t for t in tabs),
-        esc(('Research updated %s · %s' % (fmt_date(day, True), ago(day))) if day else 'No research yet'),
-        esc(name), ' '.join(sub), ''.join(tiles), p_my, p_hooks, p_comp, p_topics,
-        esc(fmt_date(dt.date.today().isoformat(), True)), ''.join(pg.templates), JS)
-    page = re.sub('\\s*\u2014\\s*', ', ', page)   # never an em dash anywhere on the page
-    os.makedirs(OUT, exist_ok=True)
-    path = os.path.join(OUT, 'index.html')
-    with open(path + '.tmp', 'w', encoding='utf-8') as fh:
-        fh.write(page)
-    os.replace(path + '.tmp', path)
-    return path
+def build(rebuild=False):
+    br, built = build_shell(rebuild)
+    build_data(br)
+    return os.path.join(OUT, 'index.html'), built
 
 
 def open_file(path):
@@ -1276,13 +1470,15 @@ def main():
             s.reconfigure(encoding='utf-8', errors='replace')
         except Exception:
             pass
-    ap = argparse.ArgumentParser(prog='dashboard.py', description='Build the Script Studio research dashboard.')
+    ap = argparse.ArgumentParser(prog='dashboard.py', description='Build or refresh the Script Studio research dashboard.')
     ap.add_argument('--open', action='store_true', help='open it in the default browser')
+    ap.add_argument('--rebuild', action='store_true', help='write the page shell again too (after a brand change)')
     a = ap.parse_args()
-    path = build()
+    path, built = build(a.rebuild)
     if a.open:
         open_file(path)
     print('DASHBOARD %s' % path)
+    print('BUILT shell+data' if built else 'UPDATED data')
 
 
 if __name__ == '__main__':
