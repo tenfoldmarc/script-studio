@@ -1,6 +1,6 @@
 ---
 name: script-studio
-description: "Script Studio (Claude Creator Studio add-on). Studies the creator's own Instagram reels and their competitors' (scraped, ranked against each account's own average, transcribed), plus the places their audience hangs out (Reddit, X, websites), then writes ready-to-record short-form scripts in the creator's own voice, built on hooks and topics that already won. Use when the user says 'give me tomorrow's reel', 'write me a script', 'script about X', 'what should I post', 'give me reel ideas', 'a week of scripts', 'make my version of this reel <link>', 'research my competitors', 'what are my best hooks', 'what works on my account', 'refresh my research', 'add a competitor', 'set up Script Studio', or runs /script-studio."
+description: "Script Studio (Claude Creator Studio add-on). Studies the creator's own Instagram reels and their competitors' (scraped, ranked against each account's own average, transcribed), plus the places their audience hangs out (Reddit, X, websites), then writes ready-to-record short-form scripts in the creator's own voice, built on hooks and topics that already won. Use when the user says 'give me tomorrow's reel', 'give me ideas', 'what should I film', 'write me a script', 'script about X', 'what should I post', 'give me reel ideas', 'a week of scripts', 'make my version of this reel <link>', 'research my competitors', 'what are my best hooks', 'what works on my account', 'refresh my research', 'add a competitor', 'add a source', 'open my dashboard', 'show me my hooks', 'show my competitors', 'set up Script Studio', or runs /script-studio."
 ---
 
 # Script Studio
@@ -17,7 +17,8 @@ lines, JSON, command lines or this skill's file names. Their own scripts folder 
 Read before writing anything for the buyer, every chat, fresh (never from memory):
 - `references/ideas.md` before ideas, `references/scripting.md` before a script, `references/hooks.md` before hooks
   or the hook bank, `references/voice.md` before building their voice and before showing any script (the VOICE GATE).
-- `references/research.md` before running or reading research.
+- `references/research.md` before running or reading research. `references/dashboard.md` before building or
+  restyling their dashboard.
 
 ## What wins, highest first
 1. What the buyer asks for in this chat.
@@ -59,11 +60,15 @@ They came for scripts, so keep it tight. Three short rounds from them, then you 
    - 3 to 10 accounts whose reels pop in their space (competitors, or creators they wish they were). "Not sure?
      Tell me your niche and I'll find some." If they want help: search the web for creators in that niche, propose
      6 to 8 with a line each, let them cut.
-   - where their audience hangs out: subreddits, X accounts or topics, newsletters or websites. Optional.
+   - their website (or link-in-bio page), so their research dashboard matches their brand
+   - where I should look for video ideas: the places their audience hangs out and the sources they follow.
+     Subreddits, X accounts, topics to search on X, newsletters, blogs, news sites, YouTube channels. "A few is
+     plenty, and you can add more any time." Websites, newsletters and YouTube channels go in `--sites`.
    - 3 to 10 words the transcriber might mishear: their brand, product names, the keyword they ask people to comment.
    - where finished scripts should be saved (default `~/Documents/Script Studio`).
+   If they name no sources, suggest 3 to 5 that fit their niche (search the web) and let them cut.
    Save it: `profile set --handle "<h>" --niche "<one line>" --competitors "a,b,c" --subreddits "a,b"
-   --x-handles "a,b" --x-search "term one;term two" --sites "url,url" --vocab "a,b,c" --scripts-dir "<folder>"`.
+   --x-handles "a,b" --x-search "term one;term two" --sites "url,url" --vocab "a,b,c" --website "<url>" --scripts-dir "<folder>"`.
    The profile holds only the handle, niche, accounts and sources. What they sell goes into `ST/about.md` (step 4).
 3. Round b, the Apify key (Apify is the service that collects public reels; the free plan includes $5 of credit a
    month and a full research run uses well under $1 of it). Say:
@@ -101,7 +106,10 @@ They came for scripts, so keep it tight. Three short rounds from them, then you 
 5. When transcripts are in: build `ST/voice.md` exactly as `references/voice.md` Part 1 says, seed `ST/hook-bank.md`
    from the competitor and own outliers (`references/hooks.md`), and create `ST/taste.md` with its header
    (`references/ideas.md`).
-6. Give them the research report (`references/research.md`, "The research report") with the 5-line voice summary
+6. Build their dashboard: fill `ST/brand.json` from their website (`references/dashboard.md`), then
+   `PY "SS/scripts/dashboard.py" --open`. One line: "Your research dashboard is open: your best reels, your hook
+   library, your competitors and the topics. Say 'open my dashboard' any time."
+   Then give them the research report (`references/research.md`, "The research report") with the 5-line voice summary
    under it, and let them correct either. No extra round of questions.
 7. Straight into what they asked for. If they asked for nothing yet: "Want tomorrow's reel?" and go.
 
@@ -122,20 +130,33 @@ Full refresh, in this order. Long steps run in the background; tell the buyer wh
 5. `brief`, then read `ST/research/brief.md` in full, and look at the frame images it lists for on-screen hook text.
 6. Update the hook bank with new outliers, note new winners and flops in `ST/voice.md` (House structure, Hook types
    they lean on, Pillars) and tell them in two or three lines what changed since last time.
+7. Rebuild the dashboard: `PY "SS/scripts/dashboard.py"` (add `--open` only if they asked to see it).
 
-The radar alone (`reddit --period week` in the background, `x`, and fetching their `sites` yourself) is cheap: run
-it at the start of any ideas session when the check says `radar MISSING` or 2 or more days old. Work on the own and
-competitor signal while it runs, then `brief` and finish the cards.
+## Fresh research for every ideas ask
+
+Every time they ask for ideas or tomorrow's reel, research first, so the ideas come from what is happening now:
+1. Say one line: "Checking what's new on your account, your competitors and your sources. Two or three minutes."
+2. Start `reddit --period week` in the background (if they have subreddits; skip it if it ran in the last 12 hours).
+3. Run `quick`: the newest reels of their account and every competitor in one cheap run, transcripts of any new
+   outliers, X, then the brief. About $0.10 to $0.30 of Apify credit.
+4. While those run, fetch each of their `sites` yourself, newest items only (newsletters, blogs, news, YouTube
+   channel pages): note titles, dates and the angle.
+5. When Reddit finishes, `brief` again, read it, then write the cards. If Reddit is still running after 5 minutes,
+   go on without it and say so in one line.
+Skip steps 2 to 4 only when they ran in this chat already, or the buyer says "skip the research".
 
 ## Tomorrow's reel (the main job)
 
 Triggers: "give me tomorrow's reel", "what should I post", "reel ideas", "write me a script" with no topic.
-1. Quiet check. Radar fresh (see above). `brief` if anything changed since the last one, then read it.
+1. Quiet check, then fresh research (above), then read `ST/research/brief.md`.
 2. Read `ST/taste.md`, `ST/voice.md`, `ST/about.md`, `ST/hook-bank.md`.
 3. Write 5 idea cards (`references/ideas.md`), run its 7-point check, and save the full cards to
    `ST/ideas/YYYY-MM-DD ideas.md`. Show them short: the working title, one line on why it should win (the proof:
    whose reel, how far above their average, or the thread), the pillar. Ask which.
-4. They pick (or mix two, or give their own angle). Write the script (`references/scripting.md`) with 10 hook
+4. They pick (or mix two, or give their own angle). Before writing, read their last 10 scripts in their scripts
+   folder (the ones `ST/taste.md` logs as approved or edited count most; their own edits show how they really
+   talk) and the transcripts of their top 3 reels. Match how they speak. Scripts are for you to learn from: never
+   put them in the dashboard. Write the script (`references/scripting.md`) with 10 hook
    options ranked (`references/hooks.md`), #1 in the script. Run the VOICE GATE.
 5. Save it to their scripts folder (`where` prints it) as `YYYY-MM-DD <title>.md`: today's date, and strip
    `/ \ : * ? " < > |` from the title. Use the output format from `references/scripting.md`, all 10 hooks included.
@@ -154,7 +175,12 @@ Triggers: "give me tomorrow's reel", "what should I post", "reel ideas", "write 
   copy their lines; name the source in the card so the buyer knows where it came from.
 - **"A week of scripts" / "5 scripts"**: one round of 8 to 10 cards (saved to the ideas file), they pick 5 (or you
   pick the 5 strongest with different pillars, mechanisms and sources), then the scripts one after another. Save each.
-- **"What are my best hooks" / "what works on my account"**: the research report, focused on their own account.
+- **"What are my best hooks" / "what works on my account" / "show my competitors"**: `PY "SS/scripts/dashboard.py"
+  --open`, then two or three lines on what stands out. The research report if they want it in the chat.
+- **"Open my dashboard"**: `PY "SS/scripts/dashboard.py" --open`. **"Make my dashboard match my brand"**: redo
+  `ST/brand.json` (`references/dashboard.md`), then rebuild with `--open`.
+- **"Add a source" / "check X for ideas"**: `profile set --sites "<url>" --add` (or `--subreddits`, `--x-handles`,
+  `--x-search`), then use it in the next research.
 - **"Research my competitors" / "add a competitor"**: update the profile, scrape just those (`scrape "a,b"`),
   `transcribe`, then report the outliers and what each one teaches.
 - **"Turn this script into a carousel"**: hand the finished script to the carousel side of Claude Creator Studio

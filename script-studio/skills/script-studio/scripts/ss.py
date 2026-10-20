@@ -10,6 +10,7 @@ Run with the Creator Studio's own Python (start.sh / start.ps1 find it). Command
   transcribe [--own-top 10] [--own-bottom 4] [--per-creator 4] [--min-x 2.5] [--model small.en]
   reddit [--subs a,b] [--period week|month|year] [--limit 12] [--comments 1]   (slow: Reddit rate-limits; run in the background)
   x [--handles a,b] [--search "a;b"] [--max 60]
+  quick [--since "10 days"]               fresh research for an ideas session (new reels, new outliers, X, brief)
   brief [--days 120]                      writes research/brief.md (what Claude reads to find ideas)
   import <file | Apify dataset id>        reels collected another way (Apify connector, export)
   library [--handle h] [--top 20]         ranked list of scraped reels
@@ -230,7 +231,7 @@ def cmd_profile(a):
         return
     if a.handle:
         p['handle'] = clean_handle(a.handle)
-    for k in ('niche', 'name', 'goal', 'offer', 'cta', 'scripts_dir'):
+    for k in ('niche', 'name', 'goal', 'offer', 'cta', 'scripts_dir', 'website', 'lang'):
         v = getattr(a, k, None)
         if v:
             p[k] = v.strip()
@@ -464,6 +465,30 @@ def cmd_import(a):
     ingest(items, 'import')
 
 
+def cmd_quick(a):
+    """Fresh research for an ideas session: the newest reels of the buyer and every competitor in ONE Apify run
+    (only posts from the last few days, so it is cheap), transcripts of any new outliers, and X if set up.
+    Reddit is slow, so it is started separately (in the background) and websites are read by Claude."""
+    ensure_dirs()
+    p = load_profile()
+    handles = [h for h in ([p.get('handle')] + p['competitors']) if h]
+    if not handles:
+        raise SystemExit('FAILED no handles in the profile')
+    est = len(handles) * a.limit * REEL_PRICE + 0.01
+    print('PLAN newest reels of %d account(s) from the last %s, about $%.2f of Apify credit at most' % (len(handles), a.since, est), flush=True)
+    inp = {'username': handles, 'resultsLimit': a.limit, 'onlyPostsNewerThan': a.since, 'skipTrialReels': True}
+    ingest(run_actor(REEL_ACTOR, inp, max(0.3, est * 1.3), 'reels'), 'quick')
+    transcribe_all(argparse.Namespace(own_top=a.own_top, own_bottom=0, per_creator=2, min_x=a.min_x, model='small.en', codes=None))
+    if p['x_handles'] or p['x_search']:
+        try:
+            cmd_x(argparse.Namespace(handles=None, search=None, max=60, days=7))
+        except SystemExit as e:
+            print('SKIP x (%s)' % e)
+        except Exception as e:
+            print('SKIP x (%s)' % e.__class__.__name__)
+    cmd_brief(argparse.Namespace(days=120))
+
+
 def cmd_library(a):
     hs = [clean_handle(a.handle)] if a.handle else sorted(os.listdir(P['library'])) if os.path.isdir(P['library']) else []
     for h in hs:
@@ -690,7 +715,8 @@ def cmd_x(a):
     terms = ['from:%s since:%s -filter:replies' % (h, since) for h in handles] + ['%s since:%s min_faves:50 -filter:replies' % (s, since) for s in searches]
     est = a.max * TWEET_PRICE + 0.01
     print('PLAN %d X searches, up to %d posts, about $%.2f of Apify credit at most' % (len(terms), a.max, est), flush=True)
-    items = run_actor(X_ACTOR, {'searchTerms': terms, 'maxItems': a.max, 'sort': 'Top', 'includeSearchTerms': True}, max(0.25, est * 1.5), 'x')
+    items = run_actor(X_ACTOR, {'searchTerms': terms, 'maxItems': a.max, 'sort': 'Top', 'includeSearchTerms': True,
+                                'tweetLanguage': p.get('lang') or 'en'}, max(0.25, est * 1.5), 'x')
     out = []
     for t in items:
         if t.get('noResults') or not t.get('text'):
@@ -889,7 +915,7 @@ def main():
     pr = sp.add_parser('profile')
     pr.add_argument('action', choices=['show', 'set'])
     pr.add_argument('--handle')
-    for f in ('niche', 'name', 'goal', 'offer', 'cta', 'scripts-dir', 'competitors', 'subreddits', 'x-handles', 'x-search', 'sites', 'vocab'):
+    for f in ('niche', 'name', 'goal', 'offer', 'cta', 'scripts-dir', 'website', 'lang', 'competitors', 'subreddits', 'x-handles', 'x-search', 'sites', 'vocab'):
         pr.add_argument('--' + f, dest=f.replace('-', '_'))
     pr.add_argument('--add', action='store_true')
     pr.add_argument('--remove', action='store_true')
@@ -917,6 +943,11 @@ def main():
     x.add_argument('--days', type=int, default=14)
     b = sp.add_parser('brief')
     b.add_argument('--days', type=int, default=120)
+    qk = sp.add_parser('quick')
+    qk.add_argument('--since', default='10 days')
+    qk.add_argument('--limit', type=int, default=12)
+    qk.add_argument('--own-top', type=int, default=10)
+    qk.add_argument('--min-x', type=float, default=2.5)
     im = sp.add_parser('import')
     im.add_argument('source')
     lb = sp.add_parser('library')
@@ -924,7 +955,7 @@ def main():
     lb.add_argument('--top', type=int, default=15)
     a = ap.parse_args()
     {'check': cmd_check, 'where': cmd_where, 'key': cmd_key, 'profile': cmd_profile, 'scrape': cmd_scrape,
-     'transcribe': cmd_transcribe, 'reddit': cmd_reddit, 'x': cmd_x, 'brief': cmd_brief, 'library': cmd_library, 'import': cmd_import}[a.cmd](a)
+     'transcribe': cmd_transcribe, 'reddit': cmd_reddit, 'x': cmd_x, 'brief': cmd_brief, 'library': cmd_library, 'import': cmd_import, 'quick': cmd_quick}[a.cmd](a)
 
 
 if __name__ == '__main__':
