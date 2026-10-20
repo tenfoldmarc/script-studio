@@ -25,7 +25,7 @@ Setup takes about two minutes of your time. You give it your handle, 3 to 10 acc
 give me tomorrow's reel
 ```
 
-You get 5 ideas, each backed by proof (a reel that crushed its creator's average, or a thread your audience is talking about). Pick one, and you get the script: the spoken lines, on-screen text, caption and 10 hook options, all in your voice. Film it, drop the clips in, and say "edit it". Creator Studio edits the reel.
+Claude checks what is new, then you pick the topic together: each idea is backed by proof (a reel that crushed its creator's average, or a thread your audience is talking about). Then you pick your favorite of up to 10 hooks, and you get the full script in your voice: the spoken lines, on-screen text and caption. Film it, drop the clips in, and say "edit it". Creator Studio edits the reel.
 
 You can also say:
 

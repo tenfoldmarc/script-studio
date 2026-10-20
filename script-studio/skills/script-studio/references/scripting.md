@@ -127,7 +127,7 @@ When the reel's main goal is conversion, the CTA can also go in the caption's fi
 
 ## Output format for every script
 
-Save exactly this as the script file, no em dashes anywhere. In chat show everything except the Hook options section; from it show the top 3 only, one line each, and say the other 7 are in the file.
+The hook was picked by the buyer before you wrote this (`hooks.md`, "Write hook options"). Save exactly this as the script file, no em dashes anywhere. In chat show everything except the Other hooks section.
 
 ```
 # <Title, internal, an open loop>
@@ -166,8 +166,8 @@ Shape: <story shape or house structure> | Payoff lands at: ~<N>% | Source: <@cre
 <CTA line>
 <3 to 5 relevant hashtags>
 
-## Hook options (10, ranked)
-<all 10 in the option format from hooks.md. #1 is the hook used in the script above.>
+## Other hooks
+<every option the buyer did not pick, in the option format from hooks.md, so they can swap one in later>
 
 ## Film it
 <one take or line by line, and why> | <camera angle and framing tip>
@@ -224,7 +224,7 @@ Works best if your regulars already follow you. Ours were checking stories befor
 Send this to a small shop owner who needs it.
 #smallbakery #homebakery #smallbusinesstips #bakerylife
 
-## Hook options (10, ranked)
+## Other hooks
 1. [Mistake or warning + Story cold open] [your pattern, reel 4]
    Spoken:    "We used to throw out a dozen loaves every Saturday."
    On-screen: "The menu change that saved our Saturdays" (zero discounts)
@@ -237,9 +237,7 @@ Send this to a small shop owner who needs it.
    Caption:   "Took us [VERIFY: months] to figure this out."
    Frame one: Price chalkboard being wiped clean.
    Why here:  Kills the obvious fix first, so the real one feels earned.
-<3 to 10 in the same format>
-
-(In chat: the top 3 as one line each, then "The other 7 are in the file.")
+<the rest in the same format>
 
 ## Film it
 One take. It's a story, and the energy is better straight through. | Phone propped on the counter at eye level, back camera, bread in the lower third of frame. Film the shelf B-roll separately the next Saturday morning.
@@ -293,7 +291,7 @@ Every box passes before the script is shown. The timing, length and CTA items ar
 
 ## Hand-off
 
-In this order: show the script (with the top 3 hooks), say where it is saved in one line, then ask "Want me to change anything, or is this the one?" On approval, give this line:
+In this order: show the script, say where it is saved in one line, then ask "Want me to change anything, or is this the one?" On approval, give this line:
 
 > Film it, drop the clips in, and say 'edit it'. Creator Studio will edit the reel.
 

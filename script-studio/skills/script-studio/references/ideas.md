@@ -107,6 +107,7 @@ Use the words, not the people. Never name a private person from a thread in a sc
 
 ## Source diversity rules
 
+- **Topic options per ask: 3 to 5.** Show them short, agree one topic with the buyer, then go to hooks (`hooks.md`).
 - **No competitor twice in one batch.** The buyer's own reels can source up to 2 cards in a batch of 5.
 - **Mix sources.** For a batch of 5: at least 1 from the buyer's own winners, at least 2 from competitor outliers, at least 1 from radar. Scale it up for bigger batches. Shift the mix when one pool is thin.
 - **No more than 2 ideas from one subreddit or one site.**

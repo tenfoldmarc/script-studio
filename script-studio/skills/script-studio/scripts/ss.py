@@ -13,6 +13,7 @@ Run with the Creator Studio's own Python (start.sh / start.ps1 find it). Command
   quick [--since "10 days"]               fresh research for an ideas session (new reels, new outliers, X, brief)
   brief [--days 120]                      writes research/brief.md (what Claude reads to find ideas)
   import <file | Apify dataset id>        reels collected another way (Apify connector, export)
+  import-x <file | Apify dataset id>      X posts collected with the Apify connector
   library [--handle h] [--top 20]         ranked list of scraped reels
   where                                   prints the folders
 
@@ -183,8 +184,18 @@ def apify_user(tok):
         return None, 'offline (%s)' % e.__class__.__name__
 
 
+class NeedConnector(Exception):
+    """No Apify key saved: the buyer has Apify connected inside Claude instead. The plan was printed; Claude runs
+    the actor with its Apify tool and hands the dataset back with `import` / `import-x`."""
+
+
 def run_actor(actor, inp, max_usd, label):
-    """Start an actor, wait for it, return its dataset items. Prints progress lines (plain words)."""
+    """Start an actor, wait for it, return its dataset items. Prints progress lines (plain words).
+    Without a saved key it prints the actor and its input for the Apify connector, then raises NeedConnector."""
+    if not token():
+        print('CONNECTOR %s %s' % (label, actor.replace('~', '/')))
+        print('INPUT %s' % json.dumps(inp, ensure_ascii=False))
+        raise NeedConnector(label)
     q = urllib.parse.urlencode({'maxTotalChargeUsd': '%.2f' % max_usd})
     run = apify('POST', '/acts/%s/runs?%s' % (actor, q), inp)['data']
     rid, ds = run['id'], run['defaultDatasetId']
@@ -421,7 +432,11 @@ def cmd_scrape(a):
     inp = {'username': handles, 'resultsLimit': a.limit, 'skipPinnedPosts': False, 'skipTrialReels': True}
     if a.since:
         inp['onlyPostsNewerThan'] = a.since
-    items = run_actor(REEL_ACTOR, inp, max(a.max_usd, est * 1.3), 'reels')
+    try:
+        items = run_actor(REEL_ACTOR, inp, max(a.max_usd, est * 1.3), 'reels')
+    except NeedConnector:
+        print('NEXT run that actor with the Apify tool (wait until it finishes), then: import <datasetId>')
+        return
     ingest(items, a.who if a.who in ('own', 'competitors') else 'custom', handles)
 
 
@@ -443,6 +458,27 @@ def ingest(items, label, expected=()):
     for h in expected:
         if h not in by and '/' not in h:
             print('MISSING @%s: no reels came back (private, wrong handle, or no reels)' % h)
+
+
+def load_items(src):
+    if os.path.exists(src):
+        items = read_json(src, [])
+    else:
+        ds = re.sub(r'.*/datasets/', '', src).split('/')[0].split('?')[0]
+        hdr = {'User-Agent': UA}
+        if token():
+            hdr['Authorization'] = 'Bearer ' + token()
+        with urllib.request.urlopen(urllib.request.Request('https://api.apify.com/v2/datasets/%s/items?clean=true' % ds, headers=hdr), timeout=120) as r:
+            items = json.load(r)
+    if isinstance(items, dict):
+        items = items.get('items') or items.get('data', {}).get('items', [])
+    return items
+
+
+def cmd_import_x(a):
+    items = load_items(a.source)
+    print('IMPORT %d X posts' % len(items))
+    x_ingest(items)
 
 
 def cmd_import(a):
@@ -477,6 +513,14 @@ def cmd_quick(a):
     est = len(handles) * a.limit * REEL_PRICE + 0.01
     print('PLAN newest reels of %d account(s) from the last %s, about $%.2f of Apify credit at most' % (len(handles), a.since, est), flush=True)
     inp = {'username': handles, 'resultsLimit': a.limit, 'onlyPostsNewerThan': a.since, 'skipTrialReels': True}
+    if not token():   # Apify connected inside Claude: print both plans, Claude runs them and imports
+        print('CONNECTOR reels %s' % REEL_ACTOR.replace('~', '/'))
+        print('INPUT %s' % json.dumps(inp, ensure_ascii=False))
+        if p['x_handles'] or p['x_search']:
+            print('CONNECTOR x %s' % X_ACTOR.replace('~', '/'))
+            print('INPUT %s' % json.dumps(x_input(p, argparse.Namespace(handles=None, search=None, max=60, days=7)), ensure_ascii=False))
+        print('NEXT run each actor with the Apify tool, then: import <reels datasetId>, import-x <x datasetId>, transcribe, brief')
+        return
     ingest(run_actor(REEL_ACTOR, inp, max(0.3, est * 1.3), 'reels'), 'quick')
     transcribe_all(argparse.Namespace(own_top=a.own_top, own_bottom=0, per_creator=2, min_x=a.min_x, model='small.en', codes=None))
     if p['x_handles'] or p['x_search']:
@@ -715,8 +759,27 @@ def cmd_x(a):
     terms = ['from:%s since:%s -filter:replies' % (h, since) for h in handles] + ['%s since:%s min_faves:50 -filter:replies' % (s, since) for s in searches]
     est = a.max * TWEET_PRICE + 0.01
     print('PLAN %d X searches, up to %d posts, about $%.2f of Apify credit at most' % (len(terms), a.max, est), flush=True)
-    items = run_actor(X_ACTOR, {'searchTerms': terms, 'maxItems': a.max, 'sort': 'Top', 'includeSearchTerms': True,
-                                'tweetLanguage': p.get('lang') or 'en'}, max(0.25, est * 1.5), 'x')
+    try:
+        items = run_actor(X_ACTOR, x_input(p, a), max(0.25, est * 1.5), 'x')
+    except NeedConnector:
+        print('NEXT run that actor with the Apify tool, then: import-x <datasetId>')
+        return
+    x_ingest(items)
+
+
+def x_terms(p, a):
+    handles = [clean_handle(h) for h in split_list(getattr(a, 'handles', None))] or p['x_handles']
+    searches = split_list(getattr(a, 'search', None), ';') or p['x_search']
+    since = (dt.date.today() - dt.timedelta(days=a.days)).isoformat()
+    return ['from:%s since:%s -filter:replies' % (h, since) for h in handles] + ['%s since:%s min_faves:50 -filter:replies' % (s, since) for s in searches]
+
+
+def x_input(p, a):
+    return {'searchTerms': x_terms(p, a), 'maxItems': a.max, 'sort': 'Top', 'includeSearchTerms': True, 'tweetLanguage': p.get('lang') or 'en'}
+
+
+def x_ingest(items):
+    ensure_dirs()
     out = []
     for t in items:
         if t.get('noResults') or not t.get('text'):
@@ -948,6 +1011,8 @@ def main():
     qk.add_argument('--limit', type=int, default=12)
     qk.add_argument('--own-top', type=int, default=10)
     qk.add_argument('--min-x', type=float, default=2.5)
+    ix = sp.add_parser('import-x')
+    ix.add_argument('source')
     im = sp.add_parser('import')
     im.add_argument('source')
     lb = sp.add_parser('library')
@@ -955,7 +1020,7 @@ def main():
     lb.add_argument('--top', type=int, default=15)
     a = ap.parse_args()
     {'check': cmd_check, 'where': cmd_where, 'key': cmd_key, 'profile': cmd_profile, 'scrape': cmd_scrape,
-     'transcribe': cmd_transcribe, 'reddit': cmd_reddit, 'x': cmd_x, 'brief': cmd_brief, 'library': cmd_library, 'import': cmd_import, 'quick': cmd_quick}[a.cmd](a)
+     'transcribe': cmd_transcribe, 'reddit': cmd_reddit, 'x': cmd_x, 'brief': cmd_brief, 'library': cmd_library, 'import': cmd_import, 'quick': cmd_quick, 'import-x': cmd_import_x}[a.cmd](a)
 
 
 if __name__ == '__main__':

@@ -37,7 +37,7 @@ It prints `PY <path>` then STATUS lines. Read them, do not announce them.
   needs Creator Studio installed first. Install it from your portal, then say 'set up Script Studio'." Stop.
 - `STATUS profile MISSING`: the setup below, then what they asked for.
 - Half-finished setup: resume at the first missing piece, in this order: profile, key (`apify MISSING` or
-  `INVALID`: setup round b), research (`research MISSING`: Refresh), about (`about MISSING` with profile OK: ask the
+  `INVALID` with no Apify tool connected in this Claude: setup round b; with one connected, connector mode), research (`research MISSING`: Refresh), about (`about MISSING` with profile OK: ask the
   round c questions and write `ST/about.md`), voice (`voice MISSING` with research present: setup step 5). Never
   restart the setup and never re-ask what is already saved.
 - `STATUS research STALE` (7 days or more): offer one line, "Want me to refresh your research first? About 10
@@ -64,14 +64,21 @@ They came for scripts, so keep it tight. Three short rounds from them, then you 
    - where I should look for video ideas: the places their audience hangs out and the sources they follow.
      Subreddits, X accounts, topics to search on X, newsletters, blogs, news sites, YouTube channels. "A few is
      plenty, and you can add more any time." Websites, newsletters and YouTube channels go in `--sites`.
-   - 3 to 10 words the transcriber might mishear: their brand, product names, the keyword they ask people to comment.
    - where finished scripts should be saved (default `~/Documents/Script Studio`).
    If they name no sources, suggest 3 to 5 that fit their niche (search the web) and let them cut.
+   Don't ask about transcription. Fill `--vocab` yourself with the names Whisper tends to mishear: their brand,
+   their name, product and tool names they mentioned, and later (round c) their comment keyword (`--vocab "x" --add`).
    Save it: `profile set --handle "<h>" --niche "<one line>" --competitors "a,b,c" --subreddits "a,b"
    --x-handles "a,b" --x-search "term one;term two" --sites "url,url" --vocab "a,b,c" --website "<url>" --scripts-dir "<folder>"`.
    The profile holds only the handle, niche, accounts and sources. What they sell goes into `ST/about.md` (step 4).
-3. Round b, the Apify key (Apify is the service that collects public reels; the free plan includes $5 of credit a
-   month and a full research run uses well under $1 of it). Say:
+3. Round b, Apify (the service that collects public reels). **Skip this round entirely when an Apify tool is
+   already connected in this Claude** (tools whose names contain `apify`, with a way to call an actor) or the check
+   says `apify OK`: say nothing about it and go on. With a connected tool and no key, every research command runs in
+   connector mode: it prints `CONNECTOR <name> <actor>` and `INPUT <json>` and stops. Call that actor with that exact
+   input through the Apify tool, wait for it to finish, then hand the dataset back with `import <datasetId>` (reels)
+   or `import-x <datasetId>` (X), as its `NEXT` line says, and carry on.
+   Neither connected: the free plan includes $5 of credit a month and a full research run uses well under $1 of
+   it. Say:
    > "Next. Make a free account at apify.com (Google sign-in works). Then open Settings, then API &
    > Integrations, and click the copy button next to your Personal API token. Don't paste it here: just copy it
    > and tell me 'copied'."
@@ -79,8 +86,6 @@ They came for scripts, so keep it tight. Three short rounds from them, then you 
    to copy it again. `KEY INVALID`: the token is wrong or revoked, ask them to copy it again from the same page.
    If they paste it in the chat anyway: save it with `key` reading it from stdin (`printf '%s' '<token>' | PY ...
    key`), never echo it back, and say it is saved.
-   No key at all but an Apify tool is connected in this Claude: you may run `apify/instagram-reel-scraper` through
-   that tool (input as in `references/research.md`) and pass the dataset id to `import <id>`.
 4. Round c, while the research runs: start the first full research (see Refresh, all steps, `reddit --period
    month`). Tell them: "Studying your reels and your competitors now. About 10 to 15 minutes. While that runs, four
    quick questions." Ask in ONE message:
@@ -150,32 +155,38 @@ Skip steps 2 to 4 only when they ran in this chat already, or the buyer says "sk
 Triggers: "give me tomorrow's reel", "what should I post", "reel ideas", "write me a script" with no topic.
 1. Quiet check, then fresh research (above), then read `ST/research/brief.md`.
 2. Read `ST/taste.md`, `ST/voice.md`, `ST/about.md`, `ST/hook-bank.md`.
-3. Write 5 idea cards (`references/ideas.md`), run its 7-point check, and save the full cards to
-   `ST/ideas/YYYY-MM-DD ideas.md`. Show them short: the working title, one line on why it should win (the proof:
-   whose reel, how far above their average, or the thread), the pillar. Ask which.
-4. They pick (or mix two, or give their own angle). Before writing, read their last 10 scripts in their scripts
+3. **Pick the topic together.** If they already gave a topic, confirm it in one line and go to step 4. Otherwise
+   write 3 to 5 topic options as idea cards (`references/ideas.md`), run its 7-point check, and save the full cards
+   to `ST/ideas/YYYY-MM-DD ideas.md`. Show them short: the working title, one line on why it should win (the proof:
+   whose reel, how far above their usual, or the thread), the pillar. Ask: "Which one, or got your own topic?" They
+   can pick, mix two or bring their own; shape it with them until it is one clear topic.
+4. **Pick the hook together.** Write hook options for that topic (`references/hooks.md`, "Write hook options"):
+   10 when their hook bank plus their own winning openers give you 10 strong, different ones, fewer (5 at least)
+   when the library is still small. Never pad with weak ones. Show every option numbered: the spoken line, the
+   on-screen text, and one line on why (its proof). Ask which one they like. They can pick, combine two or reword one.
+5. **Write the full script** around their hook. Before writing, read their last 10 scripts in their scripts
    folder (the ones `ST/taste.md` logs as approved or edited count most; their own edits show how they really
    talk) and the transcripts of their top 3 reels. Match how they speak. Scripts are for you to learn from: never
-   put them in the dashboard. Write the script (`references/scripting.md`) with 10 hook
-   options ranked (`references/hooks.md`), #1 in the script. Run the VOICE GATE.
-5. Save it to their scripts folder (`where` prints it) as `YYYY-MM-DD <title>.md`: today's date, and strip
-   `/ \ : * ? " < > |` from the title. Use the output format from `references/scripting.md`, all 10 hooks included.
-6. Show the script, then the top 3 hooks (one line each) and say the other 7 are in the file. Say where it is saved
-   in one line. Ask one thing: "Want me to change anything, or is this the one?"
+   put them in the dashboard. Follow `references/scripting.md`, then run the VOICE GATE.
+6. Save it to their scripts folder (`where` prints it) as `YYYY-MM-DD <title>.md`: today's date, and strip
+   `/ \ : * ? " < > |` from the title. Use the output format from `references/scripting.md`: their hook in the
+   script, the other options under "Other hooks". Show the script, say where it is saved in one line, and ask one
+   thing: "Want me to change anything, or is this the one?"
 7. On approval: "Film it, drop the clips in, and say 'edit it'. Creator Studio will edit the reel."
-   Every approval, edit or rejection gets logged in `ST/taste.md`; edits they make twice become `[confirmed]` lines
+   Every pick (topic and hook), approval, edit or rejection gets logged in `ST/taste.md`; edits they make twice become `[confirmed]` lines
    in `ST/voice.md` (`references/voice.md`).
 
 ## Other asks
 
-- **"Script about X"** (their topic): skip the cards. Read the brief and hook bank anyway: use the closest proven
-  hook mechanism and their own best structure for that kind of topic. Same output, gate, save and steps 6 to 7.
+- **"Script about X"** (their topic): skip the topic cards. Read the brief and hook bank anyway, then steps 4 to 7:
+  hook options for that topic, they pick, the full script in their best structure for that kind of topic.
 - **"Transcribe this reel <link>"**: `scrape "<link>"`, `transcribe --codes "<link>"`, then show the transcript and what its hook does.
 - **"Make my version of this reel <link>"**: `scrape "<link>"`, then `transcribe --codes "<link>"`, read its
   transcript and frames. Find the principle (`references/ideas.md`), bend it 70/30 to them, write the script. Never
   copy their lines; name the source in the card so the buyer knows where it came from.
-- **"A week of scripts" / "5 scripts"**: one round of 8 to 10 cards (saved to the ideas file), they pick 5 (or you
-  pick the 5 strongest with different pillars, mechanisms and sources), then the scripts one after another. Save each.
+- **"A week of scripts" / "5 scripts"**: one round of 8 to 10 topic cards (saved to the ideas file), they pick 5
+  (or you pick the 5 strongest with different pillars, mechanisms and sources). Then 3 to 5 hook options per topic
+  in one message, they pick one per topic (or say "you pick"), then the scripts one after another. Save each.
 - **"What are my best hooks" / "what works on my account" / "show my competitors"**: `PY "SS/scripts/dashboard.py"
   --open`, then two or three lines on what stands out. The research report if they want it in the chat.
 - **"Open my dashboard"**: `PY "SS/scripts/dashboard.py" --open`. **"Make my dashboard match my brand"**: redo

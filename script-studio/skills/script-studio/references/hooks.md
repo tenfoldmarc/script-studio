@@ -161,19 +161,21 @@ Rules for the bank:
 
 ---
 
-## Write 10 hook options for a script
+## Write hook options
+
+This happens once the topic is agreed and BEFORE the script: the buyer picks the hook, then you write the script around it.
 
 1. **Write the core tension in one sentence** before any hook: what the viewer wants, what's in the way, and the payoff the script withholds.
 2. **Pull candidates.** The buyer's own top openers from `voice.md` first, then hook-bank templates sorted by multiplier, spread across mechanisms.
-3. **Write 10 options** with this mix:
-   - At least 6 different mechanisms.
-   - At least 2 built on the buyer's own proven hook patterns.
-   - At least 3 from bank templates, each citing its source.
+3. **How many:** 10 when the hook bank plus their own winning openers give you 10 strong, different options for this topic; fewer (never under 5) while the library is small. Never pad with weak ones. Mix:
+   - At least 4 different mechanisms (6 when you write 10).
+   - At least 2 built on the buyer's own proven hook patterns, when they have any.
+   - The rest from bank templates, each citing its source.
    - At most 1 wildcard that isn't sourced.
 4. **Every option has three lines:** spoken, on-screen, caption first line. The top 3 also get a frame one note.
 5. **Gate each option:** open-loop test, complement rule, length rules, voice gate quick pass (`voice.md` Part 2), and "does the body pay this off?" Fix or drop any that fail.
 6. **Rank.** Proven signal first (own winners, then source multiplier), then fit to this script's payoff, then voice match, then freshness against the last 10 posts and `taste.md`.
-7. **Deliver.** All 10 go in the script file under "Hook options (10, ranked)" in the format below. #1 is the hook in the script. In chat show only the top 3, one line each, and say the other 7 are in the file.
+7. **Show them all, ranked, and let the buyer pick.** In chat, one numbered entry per option: the spoken line, the on-screen text, and one short line on why (its proof). Recommend your top pick in one line. They pick, combine two or reword one. Then write the script around their hook. In the saved script file, their hook is in the script and every other option goes under "Other hooks" in the format below.
 
 Option format:
 
