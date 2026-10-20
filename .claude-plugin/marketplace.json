@@ -1,0 +1,15 @@
+{
+  "name": "script-studio",
+  "owner": {
+    "name": "Marc Cleroux",
+    "url": "https://github.com/tenfoldmarc"
+  },
+  "description": "Script Studio by Marc Cleroux (@tenfoldmarc), an add-on for Claude Creator Studio.",
+  "plugins": [
+    {
+      "name": "script-studio",
+      "source": "./script-studio",
+      "description": "Studies your reels, your competitors' reels and the places your audience hangs out, then writes ready-to-record reel scripts in your own voice, built on hooks and topics that already won."
+    }
+  ]
+}
