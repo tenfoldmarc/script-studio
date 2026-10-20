@@ -295,6 +295,6 @@ Every box passes before the script is shown. The timing, length and CTA items ar
 
 In this order: show the script (with the top 3 hooks), say where it is saved in one line, then ask "Want me to change anything, or is this the one?" On approval, give this line:
 
-> Film it, drop the clips in, and say 'edit it'. Claude Creator Studio will edit the reel.
+> Film it, drop the clips in, and say 'edit it'. Creator Studio will edit the reel.
 
 Log the outcome to `taste.md` as a `(buyer)` line when they approve, edit, or reject the script.

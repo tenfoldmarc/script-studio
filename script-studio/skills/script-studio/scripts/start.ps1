@@ -1,4 +1,4 @@
-# Script Studio quiet check (Windows). Runs on Claude Creator Studio's own Python; sets it up through the Studio
+# Script Studio quiet check (Windows). Runs on Creator Studio's own Python; sets it up through the Studio
 # when it is missing, then prints the STATUS lines.
 $ErrorActionPreference = 'SilentlyContinue'
 $SsDir = Split-Path -Parent $PSScriptRoot

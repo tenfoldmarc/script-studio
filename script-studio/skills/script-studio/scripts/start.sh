@@ -1,5 +1,5 @@
 #!/bin/sh
-# Script Studio quiet check (Mac and Linux). Script Studio runs on Claude Creator Studio's own Python
+# Script Studio quiet check (Mac and Linux). Script Studio runs on Creator Studio's own Python
 # (it already has the transcription engine and ffmpeg). This finds it, sets it up through the Studio when it is
 # missing, then prints the STATUS lines. Never runs a bare python3 (on a Mac that can open an Xcode prompt).
 SS_DIR="$(cd "$(dirname "$0")/.." && pwd)"

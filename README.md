@@ -2,7 +2,7 @@
 
 Claude studies what already works on your account, your competitors' accounts and the places your audience hangs out. Then it writes ready-to-record reel scripts in your voice.
 
-Script Studio is an add-on for Claude Creator Studio. Install the Studio first. Your walkthrough and support are in your portal: https://portal.tenfoldmarketing.com
+Script Studio is an add-on for Creator Studio. Install the Studio first. Your walkthrough and support are in your portal: https://portal.tenfoldmarketing.com
 
 ## Install in the Claude desktop app
 
@@ -25,7 +25,7 @@ Setup takes about two minutes of your time. You give it your handle, 3 to 10 acc
 give me tomorrow's reel
 ```
 
-You get 5 ideas, each backed by proof (a reel that crushed its creator's average, or a thread your audience is talking about). Pick one, and you get the script: the spoken lines, on-screen text, caption and 10 hook options, all in your voice. Film it, drop the clips in, and say "edit it". Claude Creator Studio edits the reel.
+You get 5 ideas, each backed by proof (a reel that crushed its creator's average, or a thread your audience is talking about). Pick one, and you get the script: the spoken lines, on-screen text, caption and 10 hook options, all in your voice. Film it, drop the clips in, and say "edit it". Creator Studio edits the reel.
 
 You can also say:
 

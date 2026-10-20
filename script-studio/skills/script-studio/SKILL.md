@@ -1,11 +1,11 @@
 ---
 name: script-studio
-description: "Script Studio (Claude Creator Studio add-on). Studies the creator's own Instagram reels and their competitors' (scraped, ranked against each account's own average, transcribed), plus the places their audience hangs out (Reddit, X, websites), then writes ready-to-record short-form scripts in the creator's own voice, built on hooks and topics that already won. Use when the user says 'give me tomorrow's reel', 'give me ideas', 'what should I film', 'write me a script', 'script about X', 'what should I post', 'give me reel ideas', 'a week of scripts', 'make my version of this reel <link>', 'research my competitors', 'what are my best hooks', 'what works on my account', 'refresh my research', 'add a competitor', 'add a source', 'open my dashboard', 'show me my hooks', 'show my competitors', 'set up Script Studio', or runs /script-studio."
+description: "Script Studio (Creator Studio add-on). Studies the creator's own Instagram reels and their competitors' (scraped, ranked against each account's own average, transcribed), plus the places their audience hangs out (Reddit, X, websites), then writes ready-to-record short-form scripts in the creator's own voice, built on hooks and topics that already won. Use when the user says 'give me tomorrow's reel', 'give me ideas', 'what should I film', 'write me a script', 'script about X', 'what should I post', 'give me reel ideas', 'a week of scripts', 'make my version of this reel <link>', 'research my competitors', 'what are my best hooks', 'what works on my account', 'refresh my research', 'add a competitor', 'add a source', 'open my dashboard', 'show me my hooks', 'show my competitors', 'set up Script Studio', or runs /script-studio."
 ---
 
 # Script Studio
 
-Research in, ready-to-record scripts out. The creator films, Claude Creator Studio edits.
+Research in, ready-to-record scripts out. The creator films, Creator Studio edits.
 
 `SS` is this skill's folder (`${CLAUDE_SKILL_DIR}`, or the base directory Claude Code gave you when it loaded the
 skill). It is read-only: never write into it. `PY` is the Python the quiet check prints. `ST` is the buyer's
@@ -33,8 +33,8 @@ Mac and Linux: `sh "SS/scripts/start.sh"`. Windows: `powershell -NoProfile -Exec
 It prints `PY <path>` then STATUS lines. Read them, do not announce them.
 
 - `SETUP running the Creator Studio setup first`: say once that the first run takes a few minutes, then wait.
-- `STATUS studio NOT_INSTALLED` or `SETUP_FAILED`: Script Studio runs on Claude Creator Studio. Say: "Script Studio
-  needs Claude Creator Studio installed first. Install it from your portal, then say 'set up Script Studio'." Stop.
+- `STATUS studio NOT_INSTALLED` or `SETUP_FAILED`: Script Studio runs on Creator Studio. Say: "Script Studio
+  needs Creator Studio installed first. Install it from your portal, then say 'set up Script Studio'." Stop.
 - `STATUS profile MISSING`: the setup below, then what they asked for.
 - Half-finished setup: resume at the first missing piece, in this order: profile, key (`apify MISSING` or
   `INVALID`: setup round b), research (`research MISSING`: Refresh), about (`about MISSING` with profile OK: ask the
@@ -162,7 +162,7 @@ Triggers: "give me tomorrow's reel", "what should I post", "reel ideas", "write 
    `/ \ : * ? " < > |` from the title. Use the output format from `references/scripting.md`, all 10 hooks included.
 6. Show the script, then the top 3 hooks (one line each) and say the other 7 are in the file. Say where it is saved
    in one line. Ask one thing: "Want me to change anything, or is this the one?"
-7. On approval: "Film it, drop the clips in, and say 'edit it'. Claude Creator Studio will edit the reel."
+7. On approval: "Film it, drop the clips in, and say 'edit it'. Creator Studio will edit the reel."
    Every approval, edit or rejection gets logged in `ST/taste.md`; edits they make twice become `[confirmed]` lines
    in `ST/voice.md` (`references/voice.md`).
 
@@ -170,6 +170,7 @@ Triggers: "give me tomorrow's reel", "what should I post", "reel ideas", "write 
 
 - **"Script about X"** (their topic): skip the cards. Read the brief and hook bank anyway: use the closest proven
   hook mechanism and their own best structure for that kind of topic. Same output, gate, save and steps 6 to 7.
+- **"Transcribe this reel <link>"**: `scrape "<link>"`, `transcribe --codes "<link>"`, then show the transcript and what its hook does.
 - **"Make my version of this reel <link>"**: `scrape "<link>"`, then `transcribe --codes "<link>"`, read its
   transcript and frames. Find the principle (`references/ideas.md`), bend it 70/30 to them, write the script. Never
   copy their lines; name the source in the card so the buyer knows where it came from.
@@ -183,7 +184,7 @@ Triggers: "give me tomorrow's reel", "what should I post", "reel ideas", "write 
   `--x-search`), then use it in the next research.
 - **"Research my competitors" / "add a competitor"**: update the profile, scrape just those (`scrape "a,b"`),
   `transcribe`, then report the outliers and what each one teaches.
-- **"Turn this script into a carousel"**: hand the finished script to the carousel side of Claude Creator Studio
+- **"Turn this script into a carousel"**: hand the finished script to the carousel side of Creator Studio
   ("make a carousel from this script").
 
 ## Costs and limits (say only when asked, or before anything unusual)

@@ -2,7 +2,7 @@
   "name": "script-studio",
   "displayName": "Script Studio",
   "version": "1.0.0",
-  "description": "Studies your reels, your competitors' reels and the places your audience hangs out, then writes ready-to-record reel scripts in your own voice, built on hooks and topics that already won. Add-on for Claude Creator Studio.",
+  "description": "Studies your reels, your competitors' reels and the places your audience hangs out, then writes ready-to-record reel scripts in your own voice, built on hooks and topics that already won. Add-on for Creator Studio.",
   "author": {
     "name": "Marc Cleroux",
     "url": "https://github.com/tenfoldmarc"

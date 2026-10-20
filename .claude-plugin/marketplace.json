@@ -4,7 +4,7 @@
     "name": "Marc Cleroux",
     "url": "https://github.com/tenfoldmarc"
   },
-  "description": "Script Studio by Marc Cleroux (@tenfoldmarc), an add-on for Claude Creator Studio.",
+  "description": "Script Studio by Marc Cleroux (@tenfoldmarc), an add-on for Creator Studio.",
   "plugins": [
     {
       "name": "script-studio",
