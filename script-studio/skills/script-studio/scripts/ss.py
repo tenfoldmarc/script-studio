@@ -958,6 +958,13 @@ def cmd_check(a):
         else:
             print('STATUS radar MISSING')
     print('STATUS scripts %d' % len([f for f in os.listdir(P['scripts']) if f.endswith('.md')]))
+    try:   # once a day: is there a newer Script Studio? (update.py caches the answer in the state folder)
+        import update
+        line = update.check(ST)
+        if line and 'AVAILABLE' in line:
+            print(line)
+    except Exception:
+        pass
     print('STATE %s' % ST)
 
 

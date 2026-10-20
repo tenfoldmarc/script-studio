@@ -32,6 +32,10 @@ Read before writing anything for the buyer, every chat, fresh (never from memory
 Mac and Linux: `sh "SS/scripts/start.sh"`. Windows: `powershell -NoProfile -ExecutionPolicy Bypass -File "SS/scripts/start.ps1"`.
 It prints `PY <path>` then STATUS lines. Read them, do not announce them.
 
+- `STATUS update AVAILABLE`: a newer Script Studio is out. Ask it first, on its own: "There's an update for Script
+  Studio with fixes. Want me to install it? It takes a minute." Yes (or any time they say "update Script Studio"):
+  `PY "SS/scripts/update.py"`, pass on what it prints, tell them to start a new chat, and stop. No: carry on and
+  don't ask again in this chat.
 - `SETUP running the Creator Studio setup first`: say once that the first run takes a few minutes, then wait.
 - `STATUS studio NOT_INSTALLED` or `SETUP_FAILED`: Script Studio runs on Creator Studio. Say: "Script Studio
   needs Creator Studio installed first. Install it from your portal, then say 'set up Script Studio'." Stop.
